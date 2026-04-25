@@ -13,6 +13,8 @@
 - Add VNC host, port, and password settings.
 - Connect to a VNC server.
 - Render Raw framebuffer updates inside the screen viewport.
+- Add CopyRect and Hextile encoding support.
+- Add clearer connection timeout, authentication failure, disconnect, reconnect, and framebuffer-size mismatch status.
 - Support disconnect and reconnect.
 
 ## Phase 3: Input Mapping
@@ -40,9 +42,24 @@
 - Start an app-side automation named pipe server.
 - Add the `PocketFrame.Mcp` stdio server.
 - Expose MCP tools for state, screen capture, text input, key presses, device buttons, screen clicks, and frame-change waiting.
+- Add frame hashing, stable-frame waiting, action traces, replay logs, and stable automation error codes.
 - Document MCP setup and automation coordinate systems.
 
-## Phase 7: External Device Modules
+## Phase 7: Scenarios and Validation
+
+- Add `PocketFrame.Scenarios` as the shared scenario definition project.
+- Define scenario files for device selection, VNC connection, scale, capture output, and working directories.
+- Add profile validation for required fields, geometry, assets, button uniqueness, and mappable keys.
+- Prepare scenario data for future CLI, MCP, report, and CI workflows.
+
+## Phase 8: CLI and Reports
+
+- Add a minimal CLI for humans and CI.
+- Keep runtime CLI commands on the named pipe automation protocol.
+- Add commands for device listing, profile validation, scenario validation, captures, and trace replay.
+- Add report models and Markdown output for scenario, trace, screenshot, frame index, frame hash, and error evidence.
+
+## Phase 9: External Device Modules
 
 - Add a high-level module system for simulated external devices.
 - Prototype a virtual GPS module that can stream deterministic NMEA-like data.
@@ -51,11 +68,8 @@
 - Expose module state and controls through MCP tools.
 - Keep this layer at the application-integration level, not physical GPIO/I2C/SPI bus emulation.
 
-## Phase 8: AI Debugging Workflows
+## Phase 10: AI Debugging Workflows
 
-- Add MCP action traces.
-- Add replayable automation sessions.
-- Add frame hash and stable-frame waiting.
 - Add screenshot baseline comparison.
 - Generate debugging reports with screenshots, commands, frame indexes, and module state.
 

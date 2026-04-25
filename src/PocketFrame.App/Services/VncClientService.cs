@@ -8,6 +8,7 @@ public sealed class VncClientService : IVncClientService
 {
     private readonly RfbClient client = new();
     private bool isDisconnecting;
+    private VncConnectionOptions? lastOptions;
 
     public VncClientService()
     {
@@ -25,7 +26,22 @@ public sealed class VncClientService : IVncClientService
     public RfbFramebuffer? Framebuffer => client.Framebuffer;
     public long FrameIndex { get; private set; }
     public DateTimeOffset? LastFrameUpdatedAt { get; private set; }
-    public Task ConnectAsync(VncConnectionOptions options, CancellationToken cancellationToken = default) => client.ConnectAsync(options.Host, options.Port, options.Password, cancellationToken);
+    public Task ConnectAsync(VncConnectionOptions options, CancellationToken cancellationToken = default)
+    {
+        lastOptions = new VncConnectionOptions { Host = options.Host, Port = options.Port, Password = options.Password };
+        return client.ConnectAsync(options.Host, options.Port, options.Password, cancellationToken);
+    }
+
+    public async Task ReconnectAsync(CancellationToken cancellationToken = default)
+    {
+        if (lastOptions is null)
+        {
+            throw new InvalidOperationException("No previous VNC connection is available for reconnect.");
+        }
+
+        await DisconnectAsync();
+        await ConnectAsync(lastOptions, cancellationToken);
+    }
     public Task DisconnectAsync() => client.DisconnectAsync();
     public Task SendKeyAsync(uint keysym, bool isDown)
     {

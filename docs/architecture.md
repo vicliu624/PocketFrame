@@ -13,12 +13,14 @@ It does not emulate CPU, GPU, GPIO, I2C, SPI, storage, board firmware, or Raspbe
 - `Models`: serializable device and simulator state models.
 - `ViewModels`: MVVM state orchestration and command entry points.
 - `Views`: Avalonia UI controls for toolbar, shell, screen viewport, and framebuffer display.
-- `Services`: device profile loading, VNC connection, input mapping, screenshots, and recording placeholder.
+- `Services`: device profile loading and validation, VNC connection, input mapping, screenshots, and recording placeholder.
 - `Vnc`: RFB protocol implementation with no Avalonia dependencies.
 - `Automation`: app-side automation service and named pipe server for MCP control.
 - `Assets`: device profiles, shell assets, and future previews.
 
-The `PocketFrame.Automation` project contains shared command and response models for the internal pipe protocol. The `PocketFrame.Mcp` project exposes AI-facing MCP tools and forwards commands to the running app through that pipe. MCP is an entry point; automation behavior remains owned by the app-side automation service.
+The `PocketFrame.Automation` project contains shared command and response models for the internal pipe protocol. The `PocketFrame.Mcp` project exposes AI-facing MCP tools and forwards commands to the running app through that pipe. The `PocketFrame.Cli` project provides human and CI helper commands and also uses the pipe for runtime actions. MCP remains the AI-facing entry point; automation behavior remains owned by the app-side automation service.
+
+`PocketFrame.Scenarios` contains repeatable run definitions. `PocketFrame.Reports` contains report models and Markdown writing helpers. These projects consume automation artifacts; they do not own VNC or UI state.
 
 ## View Responsibilities
 
@@ -47,7 +49,7 @@ The initial RFB client supports:
 - TCP connection to `host:port`
 - RFB 3.3 and 3.8 style negotiation for None or VNC password authentication
 - 32-bit BGRA true-color pixel format
-- Raw framebuffer updates
+- Raw, CopyRect, and Hextile framebuffer updates
 - Keyboard and pointer events
 - Disconnect and reconnect through service boundaries
 

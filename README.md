@@ -11,7 +11,20 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 - a native RFB/VNC framebuffer client;
 - device-aware keyboard, pointer, and virtual button mapping;
 - screen and device capture;
-- an MCP-only automation path for AI-driven debugging.
+- an MCP-first automation path for AI-driven debugging.
+
+## Version Focus
+
+The `0.2.0` release is a correction-and-regression release. It tightens the product direction around a stable AI automation loop instead of expanding sideways into hardware simulation.
+
+This version focuses on:
+
+- stable frame observation through framebuffer hashes and quiet-window waiting;
+- replayable automation traces for debugging and regression checks;
+- clearer VNC behavior through CopyRect, Hextile, normalized connection errors, and framebuffer-size mismatch warnings;
+- scenario definitions as the future base for repeatable runs;
+- profile validation so bad device geometry fails early;
+- a minimal CLI for humans and CI, without competing with MCP.
 
 ## Why PocketFrame Exists
 
@@ -60,9 +73,19 @@ PocketFrame.Mcp
 
 PocketFrame.Automation
   - Shared command, response, pipe, and result models
+
+PocketFrame.Scenarios
+  - Shared scenario definitions for repeatable automation runs
+
+PocketFrame.Cli
+  - Human and CI helper commands
+    -> internal named pipe for runtime actions
+
+PocketFrame.Reports
+  - Markdown report models and writers
 ```
 
-MCP is the AI-facing entry point. The MCP server does not own the VNC session or the UI. It forwards structured commands to the running PocketFrame app through an internal named pipe. PocketFrame intentionally does not expose an HTTP automation API or CLI at this stage.
+MCP is the AI-facing entry point. The MCP server does not own the VNC session or the UI. It forwards structured commands to the running PocketFrame app through an internal named pipe. PocketFrame intentionally does not expose an HTTP automation API. The CLI is a human/CI helper and uses the same named pipe for runtime actions.
 
 ## Why Avalonia + Native VNC
 
@@ -97,10 +120,11 @@ The app starts the internal automation pipe server automatically. The status bar
 
 `PocketFrame.App` automatically starts the internal automation pipe server. The MCP stdio process is normally launched by the MCP host, because stdio MCP requires the client process to own stdin/stdout.
 
-PocketFrame release packages include both:
+PocketFrame release packages include:
 
 - `PocketFrame.App`, the GUI simulator;
-- `PocketFrame.Mcp`, the MCP stdio server.
+- `PocketFrame.Mcp`, the MCP stdio server;
+- `PocketFrame.Cli`, the human and CI helper CLI.
 
 Configure your AI client to launch `PocketFrame.Mcp` after starting `PocketFrame.App`.
 
@@ -170,6 +194,7 @@ Example MCP client configuration:
 Available MCP tools:
 
 - `pocketframe_get_state`
+- `pocketframe_frame_hash`
 - `pocketframe_capture_screen`
 - `pocketframe_capture_device`
 - `pocketframe_type_text`
@@ -177,8 +202,56 @@ Available MCP tools:
 - `pocketframe_press_button`
 - `pocketframe_click_screen`
 - `pocketframe_wait_frame_change`
+- `pocketframe_wait_stable_frame`
+- `pocketframe_action_trace`
+- `pocketframe_replay_log`
 
 See `docs/mcp-automation.md` for schemas, examples, coordinate rules, and troubleshooting.
+
+## Scenarios
+
+PocketFrame includes a first scenario definition layer in `src/PocketFrame.Scenarios`.
+
+Starter scenario:
+
+```text
+scenarios/cardputer-zero-openbox-smoke.json
+```
+
+Scenarios currently describe device selection, VNC connection settings, display scale, capture output directory, and run working directory. They are the foundation for future CLI, MCP-runner, CI, and report workflows.
+
+Scenario files are configuration, not test scripts. They deliberately do not own VNC, UI state, actions, assertions, or reports.
+
+## CLI
+
+The CLI is intentionally small and does not replace MCP. Runtime commands still talk to the running GUI app through the automation pipe.
+
+```bash
+pocketframe devices list
+pocketframe profiles validate
+pocketframe scenario validate scenarios/cardputer-zero-openbox-smoke.json
+pocketframe capture screen captures/screen.png
+pocketframe capture device captures/device.png
+pocketframe trace replay runs/cardputer-zero-openbox/action-trace.json
+```
+
+The CLI is for humans and CI. AI automation should continue to use MCP.
+
+Runtime CLI commands do not bypass `PocketFrame.App`; capture and trace replay commands use the same named pipe automation protocol as MCP.
+
+See `docs/cli.md`.
+
+## Automation Loop
+
+The recommended AI loop is:
+
+1. Send an action through MCP, such as text input, a key press, a device button press, or a screen click.
+2. Wait with `pocketframe_wait_stable_frame`.
+3. Read `pocketframe_frame_hash` or capture the screen.
+4. Inspect the stable result.
+5. Save `pocketframe_action_trace` when the run should be replayed or audited.
+
+`pocketframe_wait_frame_change` remains available, but `pocketframe_wait_stable_frame` is the better default for reasoning because it waits for the screen to settle, not merely change once.
 
 ## Automation Inspector
 
@@ -254,19 +327,22 @@ See `CHANGELOG.md` for release notes.
 
 ## Current Limits
 
-- The RFB client is intentionally minimal.
-- Raw encoding is supported; Tight, Hextile, and CopyRect are deferred.
-- MCP automation currently controls the running GUI app through a local named pipe.
+- The RFB client is still intentionally minimal.
+- Raw, CopyRect, and Hextile encodings are supported; Tight and ZRLE are deferred.
+- MCP automation controls the running GUI app through a local named pipe.
+- The CLI is a human/CI helper and is not a second automation control plane.
 - The MCP server expects `PocketFrame.App` to already be running.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
+- Reports have model and Markdown writer support, but full scenario execution and automatic report generation are not complete yet.
 - Recording remains a placeholder service.
 - Device shells are still approximate and can be refined.
 
 ## Roadmap
 
 - Improve RFB performance and add more encodings.
-- Expand MCP automation with richer frame observation and stable-wait tools.
-- Add an MCP-friendly action trace and replay log.
+- Add Tight and ZRLE VNC encoding support.
+- Add first-class scenario execution.
+- Generate full run reports from scenarios, traces, screenshots, frame indexes, and frame hashes.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.
 - Add more device profiles such as T-Deck and additional cyberdeck layouts.
 - Refine shell artwork and keyboard legends.

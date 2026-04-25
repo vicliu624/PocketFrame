@@ -51,17 +51,20 @@ chmod +x ~/.vnc/xstartup
 The MVP RFB client supports:
 
 - Raw framebuffer encoding
+- CopyRect framebuffer encoding
+- Hextile framebuffer encoding
 - 32-bit true-color framebuffer requests
 - None authentication
 - VNC password authentication
 - Keyboard events
 - Pointer events
 
+PocketFrame reports a warning when the remote framebuffer size does not match the selected device profile screen size. This prevents a common automation mistake where clicks and screenshots use the wrong device coordinate space.
+
 Deferred protocol features:
 
-- CopyRect
-- Hextile
 - Tight
+- ZRLE
 - Cursor pseudo-encoding
 - Desktop resize handling
 

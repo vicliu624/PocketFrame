@@ -50,9 +50,9 @@ The GUI app starts the internal automation pipe server automatically. The MCP st
 
 ### 2. Improve VNC Reliability
 
-- Add CopyRect, Hextile, Tight, and ZRLE encodings.
+- Add Tight and ZRLE encodings.
 - Improve framebuffer update scheduling.
-- Add connection recovery and reconnect policies.
+- Continue improving connection recovery and reconnect policies.
 - Improve pointer motion and keyboard chord fidelity.
 - Add optional clipboard support.
 

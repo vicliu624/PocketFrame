@@ -4,6 +4,7 @@ obj/
 artifacts/
 publish/
 captures/
+runs/
 
 # IDE state
 .vs/

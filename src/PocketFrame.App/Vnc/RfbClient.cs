@@ -66,6 +66,26 @@ public sealed class RfbClient : IAsyncDisposable
             _ = Task.Run(() => ReceiveLoopAsync(receiveCts.Token), receiveCts.Token);
             StatusChanged?.Invoke(this, $"Connected {width}x{height}");
         }
+        catch (TimeoutException ex)
+        {
+            await DisconnectAsync();
+            throw new RfbConnectionException("connection_timeout", $"Connection timed out while connecting to {host}:{port}.", ex);
+        }
+        catch (SocketException ex)
+        {
+            await DisconnectAsync();
+            throw new RfbConnectionException("socket_error", $"Unable to connect to {host}:{port}: {ex.SocketErrorCode}.", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            await DisconnectAsync();
+            throw new RfbConnectionException("authentication_failed", ex.Message, ex);
+        }
+        catch (NotSupportedException ex)
+        {
+            await DisconnectAsync();
+            throw new RfbConnectionException("unsupported_server", ex.Message, ex);
+        }
         catch
         {
             await DisconnectAsync();
@@ -98,7 +118,7 @@ public sealed class RfbClient : IAsyncDisposable
         {
             var length = RfbProtocol.ReadUInt32(await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken));
             var reason = Encoding.ASCII.GetString(await RfbProtocol.ReadExactAsync(stream!, (int)length, cancellationToken));
-            throw new InvalidOperationException(reason);
+            throw new RfbConnectionException("security_refused", $"VNC server refused security negotiation: {reason}");
         }
 
         var types = await RfbProtocol.ReadExactAsync(stream!, count, cancellationToken);
@@ -117,7 +137,8 @@ public sealed class RfbClient : IAsyncDisposable
         var status = RfbProtocol.ReadUInt32(await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken));
         if (status != 0)
         {
-            throw new UnauthorizedAccessException("VNC authentication failed.");
+            var reason = await TryReadSecurityFailureReasonAsync(cancellationToken);
+            throw new UnauthorizedAccessException(string.IsNullOrWhiteSpace(reason) ? "VNC authentication failed." : $"VNC authentication failed: {reason}");
         }
     }
 
@@ -126,7 +147,7 @@ public sealed class RfbClient : IAsyncDisposable
         var securityType = RfbProtocol.ReadUInt32(await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken));
         if (securityType == 0)
         {
-            throw new InvalidOperationException("The VNC server refused security negotiation.");
+            throw new RfbConnectionException("security_refused", "The VNC server refused security negotiation.");
         }
 
         if (securityType == 2)
@@ -135,7 +156,7 @@ public sealed class RfbClient : IAsyncDisposable
             var status = RfbProtocol.ReadUInt32(await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken));
             if (status != 0)
             {
-                throw new UnauthorizedAccessException("VNC authentication failed.");
+                throw new UnauthorizedAccessException("VNC authentication failed. Check the saved VNC password.");
             }
         }
         else if (securityType != 1)
@@ -149,6 +170,24 @@ public sealed class RfbClient : IAsyncDisposable
         var challenge = await RfbProtocol.ReadExactAsync(stream!, 16, cancellationToken);
         var response = RfbProtocol.CreateVncAuthResponse(challenge, password);
         await WriteToServerAsync(response, cancellationToken);
+    }
+
+    private async Task<string> TryReadSecurityFailureReasonAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var length = RfbProtocol.ReadUInt32(await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken));
+            if (length == 0 || length > 4096)
+            {
+                return string.Empty;
+            }
+
+            return Encoding.ASCII.GetString(await RfbProtocol.ReadExactAsync(stream!, (int)length, cancellationToken));
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private async Task SetPixelFormatAsync(CancellationToken cancellationToken)
@@ -170,10 +209,12 @@ public sealed class RfbClient : IAsyncDisposable
 
     private async Task SetEncodingsAsync(CancellationToken cancellationToken)
     {
-        var message = new byte[8];
+        var message = new byte[16];
         message[0] = 2;
-        RfbProtocol.WriteUInt16(message.AsSpan(2), 1);
-        RfbProtocol.WriteUInt32(message.AsSpan(4), RfbEncoding.Raw);
+        RfbProtocol.WriteUInt16(message.AsSpan(2), 3);
+        RfbProtocol.WriteUInt32(message.AsSpan(4), RfbEncoding.Hextile);
+        RfbProtocol.WriteUInt32(message.AsSpan(8), RfbEncoding.CopyRect);
+        RfbProtocol.WriteUInt32(message.AsSpan(12), RfbEncoding.Raw);
         await WriteToServerAsync(message, cancellationToken);
     }
 
@@ -239,9 +280,18 @@ public sealed class RfbClient : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke(this, $"Disconnected: {ex.Message}");
+            StatusChanged?.Invoke(this, $"Disconnected: {NormalizeDisconnectReason(ex)}");
         }
     }
+
+    private static string NormalizeDisconnectReason(Exception exception) =>
+        exception switch
+        {
+            IOException => "connection closed by remote host",
+            ObjectDisposedException => "connection closed",
+            SocketException socket => $"socket error {socket.SocketErrorCode}",
+            _ => exception.Message
+        };
 
     private async Task ReadFramebufferUpdateAsync(CancellationToken cancellationToken)
     {
@@ -255,17 +305,85 @@ public sealed class RfbClient : IAsyncDisposable
             var width = RfbProtocol.ReadUInt16(header.AsSpan(4, 2));
             var height = RfbProtocol.ReadUInt16(header.AsSpan(6, 2));
             var encoding = (int)RfbProtocol.ReadUInt32(header.AsSpan(8, 4));
-            if (encoding != RfbEncoding.Raw)
+            if (encoding == RfbEncoding.Raw)
+            {
+                var pixels = await RfbProtocol.ReadExactAsync(stream!, width * height * 4, cancellationToken);
+                Framebuffer!.UpdateRawRectangle(x, y, width, height, pixels);
+            }
+            else if (encoding == RfbEncoding.CopyRect)
+            {
+                var source = await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken);
+                var sourceX = RfbProtocol.ReadUInt16(source.AsSpan(0, 2));
+                var sourceY = RfbProtocol.ReadUInt16(source.AsSpan(2, 2));
+                Framebuffer!.CopyRectangle(sourceX, sourceY, x, y, width, height);
+            }
+            else if (encoding == RfbEncoding.Hextile)
+            {
+                await ReadHextileRectangleAsync(x, y, width, height, cancellationToken);
+            }
+            else
             {
                 throw new NotSupportedException($"Unsupported RFB encoding {encoding}.");
             }
-
-            var pixels = await RfbProtocol.ReadExactAsync(stream!, width * height * 4, cancellationToken);
-            Framebuffer!.UpdateRawRectangle(x, y, width, height, pixels);
         }
 
         var updateNumber = Interlocked.Increment(ref framebufferUpdateCount);
         InputDiagnostics.Write("VNC", $"Framebuffer update #{updateNumber}: {count} rect(s)");
         FramebufferUpdated?.Invoke(this, Framebuffer!.CloneSnapshot());
+    }
+
+    private async Task ReadHextileRectangleAsync(int x, int y, int width, int height, CancellationToken cancellationToken)
+    {
+        var background = new byte[4];
+        var foreground = new byte[4];
+        for (var tileY = y; tileY < y + height; tileY += 16)
+        {
+            var tileHeight = Math.Min(16, y + height - tileY);
+            for (var tileX = x; tileX < x + width; tileX += 16)
+            {
+                var tileWidth = Math.Min(16, x + width - tileX);
+                var subencoding = (await RfbProtocol.ReadExactAsync(stream!, 1, cancellationToken))[0];
+                if ((subencoding & 1) != 0)
+                {
+                    var raw = await RfbProtocol.ReadExactAsync(stream!, tileWidth * tileHeight * 4, cancellationToken);
+                    Framebuffer!.UpdateRawRectangle(tileX, tileY, tileWidth, tileHeight, raw);
+                    continue;
+                }
+
+                if ((subencoding & 2) != 0)
+                {
+                    background = await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken);
+                }
+
+                Framebuffer!.FillRectangle(tileX, tileY, tileWidth, tileHeight, background);
+
+                if ((subencoding & 4) != 0)
+                {
+                    foreground = await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken);
+                }
+
+                if ((subencoding & 8) == 0)
+                {
+                    continue;
+                }
+
+                var subrectCount = (await RfbProtocol.ReadExactAsync(stream!, 1, cancellationToken))[0];
+                for (var index = 0; index < subrectCount; index++)
+                {
+                    var color = foreground;
+                    if ((subencoding & 16) != 0)
+                    {
+                        color = await RfbProtocol.ReadExactAsync(stream!, 4, cancellationToken);
+                    }
+
+                    var geometry = await RfbProtocol.ReadExactAsync(stream!, 2, cancellationToken);
+                    var subrectX = geometry[0] >> 4;
+                    var subrectY = geometry[0] & 0x0f;
+                    var subrectWidth = (geometry[1] >> 4) + 1;
+                    var subrectHeight = (geometry[1] & 0x0f) + 1;
+                    Framebuffer!.FillRectangle(tileX + subrectX, tileY + subrectY, subrectWidth, subrectHeight, color);
+                }
+            }
+        }
     }
 }

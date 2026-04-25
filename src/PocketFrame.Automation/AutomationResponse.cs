@@ -29,6 +29,9 @@ public sealed class AutomationResponse
         Ok = false,
         Error = new AutomationError { Code = code, Message = message }
     };
+
+    public static AutomationResponse Failure(string id, AutomationException exception) =>
+        Failure(id, exception.Code, exception.Message);
 }
 
 public sealed class AutomationError

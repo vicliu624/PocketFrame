@@ -5,6 +5,7 @@ namespace PocketFrame.App.Automation;
 public interface IAutomationService
 {
     Task<AutomationState> GetStateAsync();
+    Task<FrameHashResult> GetFrameHashAsync();
     Task<CaptureResult> CaptureScreenAsync(string? outputPath);
     Task<CaptureResult> CaptureDeviceAsync(string? outputPath);
     Task TypeTextAsync(string text);
@@ -12,4 +13,5 @@ public interface IAutomationService
     Task PressButtonAsync(string buttonId);
     Task ClickScreenAsync(int x, int y, string button);
     Task<WaitFrameResult> WaitFrameChangeAsync(long? afterFrame, int timeoutMs);
+    Task<WaitStableFrameResult> WaitStableFrameAsync(int quietMs, int timeoutMs);
 }

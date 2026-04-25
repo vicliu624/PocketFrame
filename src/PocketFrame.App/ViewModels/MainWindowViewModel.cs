@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using PocketFrame.App.Models;
 using PocketFrame.App.Services;
 using PocketFrame.App.Utils;
+using PocketFrame.App.Vnc;
 
 namespace PocketFrame.App.ViewModels;
 
@@ -113,7 +114,12 @@ public sealed class MainWindowViewModel : ObservableObject
         try
         {
             await vncClientService.ConnectAsync(Vnc.CreateOptions());
+            ApplyFramebufferSizeWarning();
             FocusSimulatorRequested?.Invoke(this, EventArgs.Empty);
+        }
+        catch (RfbConnectionException ex)
+        {
+            Vnc.Status = $"Connection failed [{ex.Code}]: {ex.Message}";
         }
         catch (SocketException ex)
         {
@@ -140,7 +146,12 @@ public sealed class MainWindowViewModel : ObservableObject
         try
         {
             await vncClientService.ConnectAsync(Vnc.CreateOptions());
+            ApplyFramebufferSizeWarning();
             FocusSimulatorRequested?.Invoke(this, EventArgs.Empty);
+        }
+        catch (RfbConnectionException ex)
+        {
+            Vnc.Status = $"Connection failed [{ex.Code}]: {ex.Message}";
         }
         catch (SocketException ex)
         {
@@ -157,6 +168,24 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public Task DisconnectAsync() => vncClientService.DisconnectAsync();
+
+    private void ApplyFramebufferSizeWarning()
+    {
+        var framebuffer = vncClientService.Framebuffer;
+        var profile = SelectedProfile;
+        if (framebuffer is null || profile is null)
+        {
+            return;
+        }
+
+        if (framebuffer.Width != profile.ScreenWidth || framebuffer.Height != profile.ScreenHeight)
+        {
+            Vnc.Status = $"Connected {framebuffer.Width}x{framebuffer.Height} - warning: VNC framebuffer size != device profile screen size ({profile.ScreenWidth}x{profile.ScreenHeight})";
+            return;
+        }
+
+        Vnc.Status = $"Connected {framebuffer.Width}x{framebuffer.Height}";
+    }
 
     public void SetScale(double scale) => SelectedScale = scale;
 

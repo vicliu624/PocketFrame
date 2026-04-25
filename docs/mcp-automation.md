@@ -74,7 +74,7 @@ Use the absolute project path that matches your checkout:
 
 ### `pocketframe_get_state`
 
-Returns the current selected device, VNC status, screen size, shell size, frame index, and last framebuffer update time.
+Returns the current selected device, VNC status, screen size, shell size, frame index, current frame hash, and last framebuffer update time.
 
 Arguments:
 
@@ -212,6 +212,68 @@ Arguments:
 
 If `afterFrame` is omitted, PocketFrame waits for a change after the current frame.
 
+### `pocketframe_frame_hash`
+
+Returns the current framebuffer SHA-256 hash and frame index. This gives agents a cheap observation fingerprint before deciding whether to capture an image.
+
+Arguments:
+
+```json
+{}
+```
+
+### `pocketframe_wait_stable_frame`
+
+Waits until the framebuffer stays unchanged for a quiet window. This is the preferred synchronization primitive for AI action/observation loops because it means the screen has likely settled after an input action.
+
+Arguments:
+
+```json
+{
+  "quietMs": 300,
+  "timeoutMs": 5000
+}
+```
+
+Example result:
+
+```json
+{
+  "stable": true,
+  "frameIndex": 123,
+  "frameHash": "b4a8...",
+  "quietMs": 300,
+  "elapsedMs": 417
+}
+```
+
+### `pocketframe_action_trace`
+
+Returns the app-side automation trace. The trace records method names, arguments, timestamps, success state, frame indexes, and frame hashes before and after each action.
+
+Arguments:
+
+```json
+{
+  "limit": 100,
+  "outputPath": "runs/cardputer-zero-openbox/action-trace.json",
+  "clear": false
+}
+```
+
+### `pocketframe_replay_log`
+
+Replays a saved automation trace. The first version replays action-like commands and synchronization commands. Observation-only commands such as state reads and captures are ignored.
+
+Arguments:
+
+```json
+{
+  "path": "runs/cardputer-zero-openbox/action-trace.json",
+  "delayMs": 100
+}
+```
+
 ## Coordinate System
 
 Automation tools use device-level coordinates:
@@ -230,6 +292,27 @@ PocketFrame increments `frameIndex` every time a VNC framebuffer update is recei
 3. Call `pocketframe_wait_frame_change` with the previous frame index.
 4. Call `pocketframe_capture_screen`.
 5. Inspect the returned screenshot.
+
+For robust debugging, prefer a stable-frame loop:
+
+1. Perform an action such as `pocketframe_type_text` or `pocketframe_click_screen`.
+2. Call `pocketframe_wait_stable_frame` with `quietMs = 300`.
+3. Call `pocketframe_frame_hash` or `pocketframe_capture_screen`.
+4. Inspect the stable screen state.
+
+## Error Codes
+
+Automation responses use stable error codes so agents can branch without parsing human messages:
+
+- `invalid_request`
+- `invalid_json`
+- `unsupported_method`
+- `not_connected`
+- `no_framebuffer`
+- `timeout`
+- `io_error`
+- `cancelled`
+- `internal_error`
 
 ## Troubleshooting
 

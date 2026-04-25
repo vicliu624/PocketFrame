@@ -1,11 +1,13 @@
 using System.Text.Json;
 using PocketFrame.App.Models;
+using PocketFrame.App.Utils;
 
 namespace PocketFrame.App.Services;
 
 public sealed class DeviceProfileService : IDeviceProfileService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private readonly DeviceProfileValidator validator = new();
 
     public async Task<IReadOnlyList<DeviceProfile>> LoadProfilesAsync(CancellationToken cancellationToken = default)
     {
@@ -21,11 +23,21 @@ public sealed class DeviceProfileService : IDeviceProfileService
                     var jsonProfile = await JsonSerializer.DeserializeAsync<JsonDeviceProfile>(stream, JsonOptions, cancellationToken);
                     if (jsonProfile is not null)
                     {
-                        profiles.Add(jsonProfile.ToDeviceProfile(Path.GetDirectoryName(file) ?? string.Empty));
+                        var profile = jsonProfile.ToDeviceProfile(Path.GetDirectoryName(file) ?? string.Empty);
+                        var validation = validator.Validate(profile);
+                        if (validation.IsValid)
+                        {
+                            profiles.Add(profile);
+                        }
+                        else
+                        {
+                            InputDiagnostics.Write("Profile", $"Skipped invalid profile {file}: {string.Join("; ", validation.Errors)}");
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    InputDiagnostics.Write("Profile", $"Failed to load profile {file}: {ex.Message}");
                 }
             }
         }
@@ -89,6 +101,8 @@ public sealed class DeviceProfileService : IDeviceProfileService
                 Width = button.Width,
                 Height = button.Height,
                 KeyCode = button.Key,
+                BlueKeyCode = button.BlueKey,
+                OrangeKeyCode = button.OrangeKey,
                 Description = button.Description
             }))
         };
@@ -119,6 +133,8 @@ public sealed class DeviceProfileService : IDeviceProfileService
         public double Width { get; set; }
         public double Height { get; set; }
         public string Key { get; set; } = string.Empty;
+        public string BlueKey { get; set; } = string.Empty;
+        public string OrangeKey { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
     }
 }

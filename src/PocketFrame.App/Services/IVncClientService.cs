@@ -11,6 +11,7 @@ public interface IVncClientService
     long FrameIndex { get; }
     DateTimeOffset? LastFrameUpdatedAt { get; }
     Task ConnectAsync(VncConnectionOptions options, CancellationToken cancellationToken = default);
+    Task ReconnectAsync(CancellationToken cancellationToken = default);
     Task DisconnectAsync();
     Task SendKeyAsync(uint keysym, bool isDown);
     Task SendPointerAsync(int x, int y, byte buttonMask);

@@ -70,6 +70,16 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           --output artifacts/publish/${{ matrix.name }}/PocketFrame.Mcp
 
+      - name: Publish PocketFrame.Cli
+        run: >
+          dotnet publish src/PocketFrame.Cli/PocketFrame.Cli.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output artifacts/publish/${{ matrix.name }}/PocketFrame.Cli
+
       - name: Copy docs and license
         run: |
           mkdir -p artifacts/publish/${{ matrix.name }}/docs

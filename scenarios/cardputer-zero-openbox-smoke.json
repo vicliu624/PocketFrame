@@ -1,0 +1,16 @@
+{
+  "name": "cardputer-zero-openbox-smoke",
+  "deviceId": "cardputer-zero",
+  "connection": {
+    "host": "127.0.0.1",
+    "port": 5910,
+    "password": ""
+  },
+  "scale": 1,
+  "captures": {
+    "outputDir": "runs/cardputer-zero-openbox"
+  },
+  "run": {
+    "workingDir": "runs/cardputer-zero-openbox"
+  }
+}

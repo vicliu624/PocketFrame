@@ -92,6 +92,7 @@ internal sealed class PocketFrameMcpServer
         tools = new object[]
         {
             Tool("pocketframe_get_state", "Get the current PocketFrame device, VNC, and framebuffer state.", new JsonObject()),
+            Tool("pocketframe_frame_hash", "Return the current framebuffer SHA-256 hash and frame index.", new JsonObject()),
             Tool("pocketframe_capture_screen", "Capture only the remote VNC screen area to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_capture_device", "Capture the rendered device shell and screen to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_type_text", "Type text into the active VNC session. Use newline characters for Enter.", Properties(("text", "string", "Text to type.")), ["text"]),
@@ -99,6 +100,9 @@ internal sealed class PocketFrameMcpServer
             Tool("pocketframe_press_button", "Press a semantic device or virtual keyboard button such as ok, back, fn, blue, keyboard-q, keyboard-z.", Properties(("buttonId", "string", "Device button id or virtual keyboard id.")), ["buttonId"]),
             Tool("pocketframe_click_screen", "Click a coordinate in the device screen/VNC coordinate space.", Properties(("x", "integer", "Screen X coordinate."), ("y", "integer", "Screen Y coordinate."), ("button", "string", "Pointer button: left, middle, or right.")), ["x", "y"]),
             Tool("pocketframe_wait_frame_change", "Wait until the VNC framebuffer frame index changes.", Properties(("afterFrame", "integer", "Optional frame index to wait after."), ("timeoutMs", "integer", "Timeout in milliseconds."))),
+            Tool("pocketframe_wait_stable_frame", "Wait until the framebuffer stops changing for a quiet window.", Properties(("quietMs", "integer", "Required quiet window in milliseconds. Defaults to 300."), ("timeoutMs", "integer", "Timeout in milliseconds. Defaults to 5000."))),
+            Tool("pocketframe_action_trace", "Read, save, or clear the in-app automation action trace.", Properties(("limit", "integer", "Optional maximum number of entries."), ("outputPath", "string", "Optional JSON output path."), ("clear", "boolean", "Clear the trace after reading."))),
+            Tool("pocketframe_replay_log", "Replay a saved automation action trace JSON file.", Properties(("path", "string", "Trace JSON path."), ("delayMs", "integer", "Optional delay between replayed actions.")), ["path"]),
         }
     };
 
@@ -109,6 +113,7 @@ internal sealed class PocketFrameMcpServer
         var response = name switch
         {
             "pocketframe_get_state" => await automationClient.SendAsync("get_state"),
+            "pocketframe_frame_hash" => await automationClient.SendAsync("frame_hash"),
             "pocketframe_capture_screen" => await automationClient.SendAsync("capture_screen", ToCaptureParams(arguments)),
             "pocketframe_capture_device" => await automationClient.SendAsync("capture_device", ToCaptureParams(arguments)),
             "pocketframe_type_text" => await automationClient.SendAsync("type_text", ToParams<TextInputParams>(arguments)),
@@ -116,6 +121,9 @@ internal sealed class PocketFrameMcpServer
             "pocketframe_press_button" => await automationClient.SendAsync("press_button", ToParams<ButtonPressParams>(arguments)),
             "pocketframe_click_screen" => await automationClient.SendAsync("click_screen", ToParams<ClickScreenParams>(arguments)),
             "pocketframe_wait_frame_change" => await automationClient.SendAsync("wait_frame_change", ToParams<WaitFrameChangeParams>(arguments), timeoutMs: ReadTimeout(arguments)),
+            "pocketframe_wait_stable_frame" => await automationClient.SendAsync("wait_stable_frame", ToParams<WaitStableFrameParams>(arguments), timeoutMs: ReadTimeout(arguments)),
+            "pocketframe_action_trace" => await automationClient.SendAsync("action_trace", ToParams<ActionTraceParams>(arguments)),
+            "pocketframe_replay_log" => await automationClient.SendAsync("replay_log", ToParams<ReplayLogParams>(arguments), timeoutMs: 60000),
             _ => throw new McpException(-32602, $"Unknown PocketFrame tool '{name}'.")
         };
 

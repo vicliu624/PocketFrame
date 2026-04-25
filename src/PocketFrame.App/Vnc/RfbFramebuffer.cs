@@ -28,6 +28,40 @@ public sealed class RfbFramebuffer
         }
     }
 
+    public void CopyRectangle(int sourceX, int sourceY, int targetX, int targetY, int width, int height)
+    {
+        lock (syncRoot)
+        {
+            var copy = new byte[width * height * 4];
+            for (var row = 0; row < height; row++)
+            {
+                var sourceOffset = ((sourceY + row) * Width + sourceX) * 4;
+                Buffer.BlockCopy(BgraPixels, sourceOffset, copy, row * width * 4, width * 4);
+            }
+
+            for (var row = 0; row < height; row++)
+            {
+                var targetOffset = ((targetY + row) * Width + targetX) * 4;
+                Buffer.BlockCopy(copy, row * width * 4, BgraPixels, targetOffset, width * 4);
+            }
+        }
+    }
+
+    public void FillRectangle(int x, int y, int width, int height, ReadOnlySpan<byte> bgra)
+    {
+        lock (syncRoot)
+        {
+            for (var row = 0; row < height; row++)
+            {
+                var offset = ((y + row) * Width + x) * 4;
+                for (var column = 0; column < width; column++)
+                {
+                    bgra.CopyTo(BgraPixels.AsSpan(offset + column * 4, 4));
+                }
+            }
+        }
+    }
+
     public byte[] Snapshot()
     {
         lock (syncRoot)

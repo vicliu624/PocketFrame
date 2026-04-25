@@ -57,6 +57,36 @@ Each button maps to a symbolic key name such as:
 
 The input mapping service converts these names to RFB keysyms. Device profiles can define different layouts without changing UI code.
 
+Buttons may also define optional layer mappings:
+
+```json
+{
+  "id": "keyboard-z",
+  "label": "Z",
+  "x": 120,
+  "y": 420,
+  "width": 36,
+  "height": 24,
+  "key": "z",
+  "blueKey": "",
+  "orangeKey": "Left"
+}
+```
+
+## Validation
+
+`DeviceProfileValidator` checks profile integrity before profiles are used by the app:
+
+- `id` and `name` must be present.
+- Screen and shell dimensions must be positive.
+- Screen geometry must stay inside shell bounds.
+- `shell.svg` must exist.
+- Button IDs must be unique.
+- Button geometry must stay inside shell bounds.
+- Button keys must be mappable by the input mapping layer.
+
+Invalid profiles are skipped during startup. If every profile is invalid or missing, the app falls back to the built-in Cardputer Zero profile.
+
 ## Adding Devices
 
 To add a new device:

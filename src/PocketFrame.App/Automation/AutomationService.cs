@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
@@ -47,14 +48,27 @@ public sealed class AutomationService : IAutomationService
             ShellWidth = profile?.ShellWidth ?? 0,
             ShellHeight = profile?.ShellHeight ?? 0,
             FrameIndex = vncClientService.FrameIndex,
+            FrameHash = TryComputeFrameHash() ?? string.Empty,
             VncStatus = viewModel.Vnc.Status,
             LastFrameUpdatedAt = vncClientService.LastFrameUpdatedAt
         });
     }
 
+    public Task<FrameHashResult> GetFrameHashAsync()
+    {
+        var framebuffer = RequireFramebuffer();
+        return Task.FromResult(new FrameHashResult
+        {
+            FrameIndex = vncClientService.FrameIndex,
+            FrameHash = ComputeFrameHash(framebuffer),
+            Width = framebuffer.Width,
+            Height = framebuffer.Height
+        });
+    }
+
     public async Task<CaptureResult> CaptureScreenAsync(string? outputPath)
     {
-        var framebuffer = vncClientService.Framebuffer ?? throw new InvalidOperationException("No VNC framebuffer is available.");
+        var framebuffer = RequireFramebuffer();
         var path = ResolveCapturePath(outputPath, "screen", viewModel.SelectedProfile?.Id ?? "unknown");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await SaveFramebufferAsync(framebuffer, path);
@@ -92,6 +106,7 @@ public sealed class AutomationService : IAutomationService
 
     public async Task TypeTextAsync(string text)
     {
+        RequireConnected();
         foreach (var character in text)
         {
             if (character == '\r')
@@ -120,6 +135,7 @@ public sealed class AutomationService : IAutomationService
 
     public async Task PressKeyAsync(string key)
     {
+        RequireConnected();
         foreach (var part in key.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
             if (part.Equals("Fn", StringComparison.OrdinalIgnoreCase) ||
@@ -153,12 +169,14 @@ public sealed class AutomationService : IAutomationService
 
     public async Task PressButtonAsync(string buttonId)
     {
+        RequireConnected();
         var button = ResolveButton(buttonId);
         await viewModel.DeviceShell.SendButtonAsync(button);
     }
 
     public async Task ClickScreenAsync(int x, int y, string button)
     {
+        RequireConnected();
         var mask = button.ToLowerInvariant() switch
         {
             "left" => (byte)1,
@@ -174,6 +192,7 @@ public sealed class AutomationService : IAutomationService
 
     public async Task<WaitFrameResult> WaitFrameChangeAsync(long? afterFrame, int timeoutMs)
     {
+        RequireFramebuffer();
         var previous = afterFrame ?? vncClientService.FrameIndex;
         if (vncClientService.FrameIndex > previous)
         {
@@ -207,10 +226,83 @@ public sealed class AutomationService : IAutomationService
         }
     }
 
+    public async Task<WaitStableFrameResult> WaitStableFrameAsync(int quietMs, int timeoutMs)
+    {
+        quietMs = Math.Max(quietMs, 1);
+        timeoutMs = Math.Max(timeoutMs, 1);
+        var start = Environment.TickCount64;
+        var lastHash = (await GetFrameHashAsync()).FrameHash;
+        var lastFrameIndex = vncClientService.FrameIndex;
+        var stableSince = Environment.TickCount64;
+
+        while (Environment.TickCount64 - start <= timeoutMs)
+        {
+            await Task.Delay(Math.Min(quietMs, 100));
+            var current = await GetFrameHashAsync();
+            if (!string.Equals(current.FrameHash, lastHash, StringComparison.Ordinal) ||
+                current.FrameIndex != lastFrameIndex)
+            {
+                lastHash = current.FrameHash;
+                lastFrameIndex = current.FrameIndex;
+                stableSince = Environment.TickCount64;
+                continue;
+            }
+
+            if (Environment.TickCount64 - stableSince >= quietMs)
+            {
+                return new WaitStableFrameResult
+                {
+                    Stable = true,
+                    FrameIndex = current.FrameIndex,
+                    FrameHash = current.FrameHash,
+                    QuietMs = quietMs,
+                    ElapsedMs = (int)(Environment.TickCount64 - start)
+                };
+            }
+        }
+
+        var latest = await GetFrameHashAsync();
+        return new WaitStableFrameResult
+        {
+            Stable = false,
+            FrameIndex = latest.FrameIndex,
+            FrameHash = latest.FrameHash,
+            QuietMs = quietMs,
+            ElapsedMs = (int)(Environment.TickCount64 - start)
+        };
+    }
+
     private async Task SendKeysymTapAsync(uint keysym)
     {
         await vncClientService.SendKeyAsync(keysym, true);
         await vncClientService.SendKeyAsync(keysym, false);
+    }
+
+    private void RequireConnected()
+    {
+        if (!viewModel.Vnc.Status.StartsWith("Connected", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AutomationException(AutomationErrorCodes.NotConnected, "VNC is not connected.");
+        }
+    }
+
+    private RfbFramebuffer RequireFramebuffer()
+    {
+        return vncClientService.Framebuffer ??
+               throw new AutomationException(AutomationErrorCodes.NoFramebuffer, "No VNC framebuffer is available.");
+    }
+
+    private string? TryComputeFrameHash()
+    {
+        var framebuffer = vncClientService.Framebuffer;
+        return framebuffer is null ? null : ComputeFrameHash(framebuffer);
+    }
+
+    private static string ComputeFrameHash(RfbFramebuffer framebuffer)
+    {
+        var snapshot = framebuffer.Snapshot();
+        var hash = SHA256.HashData(snapshot);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private uint? ParseKey(string key)
