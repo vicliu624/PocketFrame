@@ -11,9 +11,10 @@ public sealed class ScenarioRunner
     private readonly ScenarioValidator scenarioValidator;
     private readonly IAutomationClient automationClient;
     private readonly MarkdownReportWriter reportWriter;
+    private readonly VisualBaselineComparer visualBaselineComparer;
 
     public ScenarioRunner()
-        : this(new ScenarioLoader(), new ScenarioValidator(), new PipeAutomationClient(), new MarkdownReportWriter())
+        : this(new ScenarioLoader(), new ScenarioValidator(), new PipeAutomationClient(), new MarkdownReportWriter(), new VisualBaselineComparer())
     {
     }
 
@@ -21,12 +22,14 @@ public sealed class ScenarioRunner
         ScenarioLoader scenarioLoader,
         ScenarioValidator scenarioValidator,
         IAutomationClient automationClient,
-        MarkdownReportWriter reportWriter)
+        MarkdownReportWriter reportWriter,
+        VisualBaselineComparer? visualBaselineComparer = null)
     {
         this.scenarioLoader = scenarioLoader;
         this.scenarioValidator = scenarioValidator;
         this.automationClient = automationClient;
         this.reportWriter = reportWriter;
+        this.visualBaselineComparer = visualBaselineComparer ?? new VisualBaselineComparer();
     }
 
     public async Task<RunResult> RunAsync(string scenarioPath, ScenarioRunnerOptions? options = null, CancellationToken cancellationToken = default)
@@ -44,11 +47,14 @@ public sealed class ScenarioRunner
 
         var context = CreateContext(scenario, scenarioPath);
         result.Artifacts.RunDirectory = context.RunDirectory;
+        result.Artifacts.SourceScenarioPath = context.SourceScenarioPath;
         result.Artifacts.ScenarioPath = Path.Combine(context.RunDirectory, "scenario.json");
         result.Artifacts.StatePath = Path.Combine(context.RunDirectory, "state.json");
         result.Artifacts.TracePath = Path.Combine(context.RunDirectory, "action-trace.json");
         result.Artifacts.InitialScreenPath = Path.Combine(context.ScreenshotsDirectory, "initial-screen.png");
         result.Artifacts.InitialDevicePath = Path.Combine(context.ScreenshotsDirectory, "initial-device.png");
+        result.Artifacts.FailureScreenPath = Path.Combine(context.ScreenshotsDirectory, "failure-screen.png");
+        result.Artifacts.FailureDevicePath = Path.Combine(context.ScreenshotsDirectory, "failure-device.png");
         result.Artifacts.ReportPath = Path.Combine(context.RunDirectory, "report.md");
 
         Directory.CreateDirectory(context.ScreenshotsDirectory);
@@ -84,8 +90,13 @@ public sealed class ScenarioRunner
         }
 
         result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, cancellationToken));
+        if (scenario.Run.CaptureOnFailure && HasFailure(result))
+        {
+            await CaptureFailureArtifactsAsync(result, context, cancellationToken);
+        }
+
         var trace = await automationClient.SendAsync<ActionTraceResult>("action_trace", new ActionTraceParams { OutputPath = result.Artifacts.TracePath }, cancellationToken: cancellationToken);
-        result.Success = result.Errors.Count == 0 && result.Actions.All(action => action.Ok) && result.Assertions.All(assertion => assertion.Passed);
+        result.Success = result.Errors.Count == 0 && AllUnexpectedActionsSucceeded(scenario.Assertions, result.Actions) && result.Assertions.All(assertion => assertion.Passed);
         result.ExitCode = result.Success ? 0 : 1;
         return await FinishReportAsync(result, scenario, state, trace.Entries, options, cancellationToken);
     }
@@ -136,7 +147,10 @@ public sealed class ScenarioRunner
         {
             result.Ok = false;
             result.Error = ex.Message;
-            runResult.Errors.Add($"Action {id} failed: {ex.Message}");
+            if (ShouldCaptureOnFailure(action, context.Scenario))
+            {
+                await CaptureFailureArtifactsAsync(runResult, context, cancellationToken);
+            }
         }
 
         return result;
@@ -247,6 +261,39 @@ public sealed class ScenarioRunner
                 result.Actual = frame.FrameHash;
                 result.Passed = !string.IsNullOrWhiteSpace(frame.FrameHash);
                 break;
+            case "framehashequals":
+                var equalsFrame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+                result.Expected = assertion.ExpectedHash;
+                result.Actual = equalsFrame.FrameHash;
+                result.Passed = equalsFrame.FrameHash.Equals(assertion.ExpectedHash, StringComparison.Ordinal);
+                break;
+            case "framehashnotequals":
+                var notEqualsFrame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+                result.Expected = $"not {assertion.ExpectedHash}";
+                result.Actual = notEqualsFrame.FrameHash;
+                result.Passed = !notEqualsFrame.FrameHash.Equals(assertion.ExpectedHash, StringComparison.Ordinal);
+                break;
+            case "actionsucceeded":
+                var succeededAction = runResult.Actions.FirstOrDefault(item => item.Id.Equals(assertion.AfterAction, StringComparison.OrdinalIgnoreCase));
+                result.Expected = $"action '{assertion.AfterAction}' succeeds";
+                result.Actual = succeededAction is null ? "action not found" : succeededAction.Ok ? "succeeded" : $"failed: {succeededAction.Error}";
+                result.Passed = succeededAction?.Ok == true;
+                break;
+            case "actionfailed":
+                var failedAction = runResult.Actions.FirstOrDefault(item => item.Id.Equals(assertion.AfterAction, StringComparison.OrdinalIgnoreCase));
+                result.Expected = $"action '{assertion.AfterAction}' fails";
+                result.Actual = failedAction is null ? "action not found" : failedAction.Ok ? "succeeded" : $"failed: {failedAction.Error}";
+                result.Passed = failedAction is { Ok: false };
+                break;
+            case "allactionssucceeded":
+                var failedActions = runResult.Actions.Where(item => !item.Ok).Select(item => item.Id).ToList();
+                result.Expected = "all actions succeed";
+                result.Actual = failedActions.Count == 0 ? "all actions succeeded" : string.Join(", ", failedActions);
+                result.Passed = failedActions.Count == 0;
+                break;
+            case "screenshotmatchesbaseline":
+                await EvaluateScreenshotBaselineAssertionAsync(assertion, runResult, result, cancellationToken);
+                break;
             default:
                 result.Expected = "supported assertion type";
                 result.Actual = assertion.Type;
@@ -256,11 +303,93 @@ public sealed class ScenarioRunner
 
         if (!result.Passed)
         {
-            result.Message = $"Assertion {result.Id} failed.";
+            if (string.IsNullOrWhiteSpace(result.Message))
+            {
+                result.Message = $"Assertion {result.Id} failed.";
+            }
+
             runResult.Errors.Add(result.Message);
         }
 
         return result;
+    }
+
+    private async Task EvaluateScreenshotBaselineAssertionAsync(
+        ScenarioAssertion assertion,
+        RunResult runResult,
+        ScenarioAssertionResult result,
+        CancellationToken cancellationToken)
+    {
+        var screenshot = runResult.Screenshots.FirstOrDefault(item => item.Label.Equals(assertion.Label, StringComparison.OrdinalIgnoreCase));
+        if (screenshot is null)
+        {
+            result.Expected = $"screenshot label '{assertion.Label}' matches baseline";
+            result.Actual = "screenshot not found";
+            result.Passed = false;
+            return;
+        }
+
+        var actualPath = Path.Combine(runResult.Artifacts.RunDirectory, screenshot.Path);
+        var baselinePath = ResolveScenarioRelativePath(runResult, assertion.Baseline);
+        var diffPath = Path.Combine(runResult.Artifacts.RunDirectory, "screenshots", $"{SafeFileName(result.Id)}-diff.png");
+        result.Expected = $"changed ratio <= {assertion.Threshold:0.####}";
+        result.BaselinePath = RelativeTo(baselinePath, runResult.Artifacts.RunDirectory);
+        result.ActualPath = screenshot.Path;
+        result.DiffPath = RelativeTo(diffPath, runResult.Artifacts.RunDirectory);
+        result.Threshold = assertion.Threshold;
+
+        if (!File.Exists(actualPath))
+        {
+            result.Actual = $"actual missing: {screenshot.Path}";
+            result.Passed = false;
+            return;
+        }
+
+        if (!File.Exists(baselinePath))
+        {
+            result.Actual = $"baseline missing: {assertion.Baseline}";
+            result.Passed = false;
+            return;
+        }
+
+        var comparison = await visualBaselineComparer.CompareAsync(actualPath, baselinePath, diffPath, assertion.Threshold, cancellationToken);
+        result.Passed = comparison.Passed;
+        result.Actual = $"changed ratio {comparison.ChangedRatio:0.####}";
+        result.Message = comparison.Passed ? string.Empty : comparison.Message;
+        result.ChangedPixels = comparison.ChangedPixels;
+        result.TotalPixels = comparison.TotalPixels;
+        result.ChangedRatio = comparison.ChangedRatio;
+        result.Threshold = comparison.Threshold;
+        if (string.IsNullOrWhiteSpace(comparison.DiffPath))
+        {
+            result.DiffPath = string.Empty;
+        }
+    }
+
+    private async Task CaptureFailureArtifactsAsync(RunResult result, RunContext context, CancellationToken cancellationToken)
+    {
+        if (result.Screenshots.Any(item => item.Label.Equals("failure-screen", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var screen = await automationClient.SendAsync<CaptureResult>("capture_screen", new CaptureParams { OutputPath = result.Artifacts.FailureScreenPath }, cancellationToken: cancellationToken);
+        var device = await automationClient.SendAsync<CaptureResult>("capture_device", new CaptureParams { OutputPath = result.Artifacts.FailureDevicePath }, cancellationToken: cancellationToken);
+        var frame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+        result.Screenshots.Add(new ReportScreenshot
+        {
+            Label = "failure-screen",
+            Path = RelativeTo(result.Artifacts.FailureScreenPath, context.RunDirectory),
+            FrameIndex = screen.FrameIndex,
+            FrameHash = frame.FrameHash
+        });
+        result.Screenshots.Add(new ReportScreenshot
+        {
+            Label = "failure-device",
+            Path = RelativeTo(result.Artifacts.FailureDevicePath, context.RunDirectory),
+            FrameIndex = device.FrameIndex,
+            FrameHash = frame.FrameHash
+        });
     }
 
     private async Task<RunResult> FinishReportAsync(
@@ -320,6 +449,36 @@ public sealed class ScenarioRunner
         return Path.GetRelativePath(relativeTo, path).Replace('\\', '/');
     }
 
+    private static string ResolveScenarioRelativePath(RunResult result, string path)
+    {
+        if (Path.IsPathRooted(path))
+        {
+            return path;
+        }
+
+        var sourceScenarioPath = string.IsNullOrWhiteSpace(result.Artifacts.SourceScenarioPath)
+            ? result.Artifacts.ScenarioPath
+            : result.Artifacts.SourceScenarioPath;
+        var scenarioDirectory = Path.GetDirectoryName(Path.GetFullPath(sourceScenarioPath)) ?? result.Artifacts.RunDirectory;
+        return Path.GetFullPath(Path.Combine(scenarioDirectory, path));
+    }
+
+    private static bool HasFailure(RunResult result) =>
+        result.Errors.Count > 0 || result.Actions.Any(action => !action.Ok) || result.Assertions.Any(assertion => !assertion.Passed);
+
+    private static bool AllUnexpectedActionsSucceeded(IReadOnlyList<ScenarioAssertion> assertions, IReadOnlyList<ScenarioActionResult> actions)
+    {
+        var expectedFailures = assertions
+            .Where(assertion => Normalize(assertion.Type) == "actionfailed")
+            .Select(assertion => assertion.AfterAction)
+            .Where(afterAction => !string.IsNullOrWhiteSpace(afterAction))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return actions.All(action => action.Ok || expectedFailures.Contains(action.Id));
+    }
+
+    private static bool ShouldCaptureOnFailure(ScenarioAction action, ScenarioDefinition scenario) =>
+        action.CaptureOnFailure ?? scenario.Run.CaptureOnFailure;
+
     private static string ResolveActionId(ScenarioAction action, int index) =>
         string.IsNullOrWhiteSpace(action.Id) ? $"action-{index + 1:000}" : action.Id;
 
@@ -352,6 +511,13 @@ public sealed class ScenarioRunner
         Passed = assertion.Passed,
         Expected = assertion.Expected,
         Actual = assertion.Actual,
-        Message = assertion.Message
+        Message = assertion.Message,
+        BaselinePath = assertion.BaselinePath,
+        ActualPath = assertion.ActualPath,
+        DiffPath = assertion.DiffPath,
+        ChangedPixels = assertion.ChangedPixels,
+        TotalPixels = assertion.TotalPixels,
+        ChangedRatio = assertion.ChangedRatio,
+        Threshold = assertion.Threshold
     };
 }

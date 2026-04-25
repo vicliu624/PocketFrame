@@ -4,6 +4,21 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.5.0] - 2026-04-25
+
+### Added
+
+- Added `screenshotMatchesBaseline` scenario assertions with actual, baseline, diff, changed pixel count, changed ratio, and threshold evidence.
+- Added `frameHashEquals`, `frameHashNotEquals`, `actionSucceeded`, `actionFailed`, and `allActionsSucceeded` assertions.
+- Added run-level and action-level `captureOnFailure` support for automatic failure screenshots.
+- Added a dependency-free PNG baseline comparer for small visual regression checks.
+- Added runner tests for assertion failure, failure captures, and screenshot baseline comparison.
+
+### Changed
+
+- Updated reports to include visual baseline evidence columns.
+- Updated the starter smoke scenario to capture failure evidence and assert that all actions succeeded.
+
 ## [0.4.0] - 2026-04-25
 
 ### Added

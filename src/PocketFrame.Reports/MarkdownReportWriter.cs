@@ -66,12 +66,13 @@ public sealed class MarkdownReportWriter
         builder.AppendLine();
         builder.AppendLine("## Assertions");
         builder.AppendLine();
-        builder.AppendLine("| Step | Id | Type | Result | Expected | Actual | Message |");
-        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | --- |");
+        builder.AppendLine("| Step | Id | Type | Result | Expected | Actual | Changed | Baseline | Actual Image | Diff | Message |");
+        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |");
         for (var index = 0; index < report.AssertionResults.Count; index++)
         {
             var assertion = report.AssertionResults[index];
-            builder.AppendLine($"| {index + 1} | `{Escape(assertion.Id)}` | `{Escape(assertion.Type)}` | `{(assertion.Passed ? "PASS" : "FAIL")}` | `{Escape(assertion.Expected)}` | `{Escape(assertion.Actual)}` | `{Escape(assertion.Message)}` |");
+            var changed = assertion.TotalPixels > 0 ? $"{assertion.ChangedRatio:0.####}" : string.Empty;
+            builder.AppendLine($"| {index + 1} | `{Escape(assertion.Id)}` | `{Escape(assertion.Type)}` | `{(assertion.Passed ? "PASS" : "FAIL")}` | `{Escape(assertion.Expected)}` | `{Escape(assertion.Actual)}` | `{changed}` | `{Escape(assertion.BaselinePath)}` | `{Escape(assertion.ActualPath)}` | `{Escape(assertion.DiffPath)}` | `{Escape(assertion.Message)}` |");
         }
 
         builder.AppendLine();

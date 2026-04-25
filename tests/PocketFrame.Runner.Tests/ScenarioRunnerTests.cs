@@ -88,6 +88,79 @@ public sealed class ScenarioRunnerTests
         Assert.All(result.Assertions, assertion => Assert.True(assertion.Passed));
     }
 
+    [Fact]
+    public async Task RunFailsWhenAssertionFailsAndCapturesFailureArtifacts()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "failure-capture",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs"), CaptureOnFailure = true },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Actions =
+            {
+                new ScenarioAction { Id = "type-ls", Type = "typeText", Text = "ls\n" }
+            },
+            Assertions =
+            {
+                new ScenarioAssertion { Id = "hash-wrong", Type = "frameHashEquals", ExpectedHash = "not-the-current-hash" }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.False(result.Success);
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(File.Exists(result.Artifacts.FailureScreenPath));
+        Assert.True(File.Exists(result.Artifacts.FailureDevicePath));
+        Assert.Contains(result.Screenshots, screenshot => screenshot.Label == "failure-screen");
+    }
+
+    [Fact]
+    public async Task RunComparesScreenshotAgainstBaseline()
+    {
+        using var directory = new TemporaryDirectory();
+        var baselineDirectory = Path.Combine(directory.Path, "baselines");
+        Directory.CreateDirectory(baselineDirectory);
+        var baselinePath = Path.Combine(baselineDirectory, "after-ls.png");
+        await File.WriteAllBytesAsync(baselinePath, FakeAutomationClient.CapturePngBytes);
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "visual",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Actions =
+            {
+                new ScenarioAction { Id = "capture-after-ls", Type = "captureScreen", Label = "after-ls" }
+            },
+            Assertions =
+            {
+                new ScenarioAssertion
+                {
+                    Id = "baseline",
+                    Type = "screenshotMatchesBaseline",
+                    Label = "after-ls",
+                    Baseline = "baselines/after-ls.png",
+                    Threshold = 0
+                }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        var assertion = Assert.Single(result.Assertions);
+        Assert.True(assertion.Passed);
+        Assert.Equal(0, assertion.ChangedRatio);
+        Assert.True(File.Exists(Path.Combine(result.Artifacts.RunDirectory, assertion.DiffPath)));
+    }
+
     private static ScenarioRunner CreateRunner(IAutomationClient client) =>
         new(new ScenarioLoader(), new ScenarioValidator(), client, new MarkdownReportWriter());
 
@@ -100,6 +173,8 @@ public sealed class ScenarioRunnerTests
 
     private sealed class FakeAutomationClient : IAutomationClient
     {
+        public static readonly byte[] CapturePngBytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGP4z8DwHwQBEPgD/U6VwW8AAAAASUVORK5CYII=");
+
         private readonly AutomationState state;
         private long frameIndex = 1;
 
@@ -138,8 +213,8 @@ public sealed class ScenarioRunnerTests
         {
             var path = ReadOutputPath(parameters);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-            await File.WriteAllTextAsync(path, "png");
-            return new CaptureResult { Path = path, Width = 340, Height = 170, FrameIndex = frameIndex };
+            await File.WriteAllBytesAsync(path, CapturePngBytes);
+            return new CaptureResult { Path = path, Width = 2, Height = 1, FrameIndex = frameIndex };
         }
 
         private async Task<ActionTraceResult> TraceAsync(object? parameters)

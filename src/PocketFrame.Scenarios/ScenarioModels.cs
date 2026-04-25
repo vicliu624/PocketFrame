@@ -51,6 +51,9 @@ public sealed class ScenarioRunOptions
 {
     [JsonPropertyName("workingDir")]
     public string WorkingDir { get; set; } = "runs/default";
+
+    [JsonPropertyName("captureOnFailure")]
+    public bool CaptureOnFailure { get; set; }
 }
 
 public sealed class ScenarioAction
@@ -87,6 +90,9 @@ public sealed class ScenarioAction
 
     [JsonPropertyName("button")]
     public string Button { get; set; } = "left";
+
+    [JsonPropertyName("captureOnFailure")]
+    public bool? CaptureOnFailure { get; set; }
 }
 
 public sealed class ScenarioAssertion
@@ -102,4 +108,13 @@ public sealed class ScenarioAssertion
 
     [JsonPropertyName("label")]
     public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("baseline")]
+    public string Baseline { get; set; } = string.Empty;
+
+    [JsonPropertyName("threshold")]
+    public double Threshold { get; set; }
+
+    [JsonPropertyName("expectedHash")]
+    public string ExpectedHash { get; set; } = string.Empty;
 }

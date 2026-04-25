@@ -81,7 +81,16 @@
 - Add basic scenario assertions.
 - Add assertion-based report summaries.
 - Add screenshot baseline comparison.
+- Add visual diff images, changed pixel ratios, and threshold-based pass/fail evidence.
+- Add automatic failure captures for screen and full device screenshots.
 - Generate debugging reports with screenshots, commands, frame indexes, and module state.
+
+## Phase 12: CI-Ready Scenario Execution
+
+- Add automation commands for selecting devices, setting scale, connecting VNC, disconnecting VNC, and reconnecting.
+- Allow the scenario runner to prepare the app state from scenario connection settings.
+- Add region baseline assertions and richer visual diff metadata.
+- Keep scenario files declarative and avoid turning them into a general scripting language.
 
 ## Future Recording
 

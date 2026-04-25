@@ -1,6 +1,6 @@
 # Scenarios
 
-Scenarios describe repeatable automation runs. They are intentionally small in the first version and do not replace the GUI, MCP server, VNC client, or device profiles.
+Scenarios describe repeatable automation runs. They are intentionally small and do not replace the GUI, MCP server, VNC client, or device profiles.
 
 The goal is to give future CLI, MCP, report, and CI workflows a shared run description:
 
@@ -9,6 +9,8 @@ The goal is to give future CLI, MCP, report, and CI workflows a shared run descr
 - which scale to use;
 - where captures and run artifacts should be written;
 - what working directory belongs to the run.
+- which actions should run;
+- which assertions decide pass or fail.
 
 ## Project
 
@@ -40,7 +42,8 @@ The project currently provides:
     "outputDir": "runs/cardputer-zero-openbox"
   },
   "run": {
-    "workingDir": "runs/cardputer-zero-openbox"
+    "workingDir": "runs/cardputer-zero-openbox",
+    "captureOnFailure": true
   }
 }
 ```
@@ -85,6 +88,12 @@ Supported first-version assertions:
 - `frameChanged`
 - `screenshotExists`
 - `frameHashNotEmpty`
+- `frameHashEquals`
+- `frameHashNotEquals`
+- `actionSucceeded`
+- `actionFailed`
+- `allActionsSucceeded`
+- `screenshotMatchesBaseline`
 
 Example:
 
@@ -95,6 +104,46 @@ Example:
   "label": "after-ls"
 }
 ```
+
+Visual baseline assertions compare a captured screenshot label with a PNG baseline. The baseline path is relative to the source scenario file unless it is absolute.
+
+```json
+{
+  "id": "after-ls-matches-baseline",
+  "type": "screenshotMatchesBaseline",
+  "label": "after-ls",
+  "baseline": "baselines/cardputer-zero-openbox/after-ls.png",
+  "threshold": 0.02
+}
+```
+
+The runner writes a diff PNG into the run screenshots directory and records changed pixel count, changed ratio, and threshold in the report.
+
+## Failure Captures
+
+Run-level failure capture can be enabled with:
+
+```json
+{
+  "run": {
+    "workingDir": "runs/cardputer-zero-openbox",
+    "captureOnFailure": true
+  }
+}
+```
+
+Individual actions can override the run default:
+
+```json
+{
+  "id": "type-ls",
+  "type": "typeText",
+  "text": "ls\n",
+  "captureOnFailure": true
+}
+```
+
+When an action or assertion fails, the runner captures `failure-screen.png` and `failure-device.png`.
 
 ## Running
 
@@ -114,5 +163,8 @@ runs/<scenario-name>/<timestamp>/
   screenshots/
     initial-screen.png
     initial-device.png
+    failure-screen.png
+    failure-device.png
+    <assertion-id>-diff.png
   report.md
 ```

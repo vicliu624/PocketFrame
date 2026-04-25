@@ -11,7 +11,8 @@
     "outputDir": "runs/cardputer-zero-openbox"
   },
   "run": {
-    "workingDir": "runs/cardputer-zero-openbox"
+    "workingDir": "runs/cardputer-zero-openbox",
+    "captureOnFailure": true
   },
   "actions": [
     {
@@ -55,6 +56,10 @@
     {
       "id": "frame-hash-present",
       "type": "frameHashNotEmpty"
+    },
+    {
+      "id": "all-actions-succeeded",
+      "type": "allActionsSucceeded"
     }
   ]
 }

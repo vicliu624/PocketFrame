@@ -26,6 +26,8 @@ A report should record:
 - each scenario assertion result;
 - frame index before and after each action;
 - frame hash before and after each action;
+- visual baseline actual, baseline, and diff paths;
+- changed pixel count, changed ratio, and threshold for baseline assertions;
 - screenshots;
 - automation errors.
 
@@ -58,3 +60,17 @@ Scenario runs can generate reports automatically:
 ```bash
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
 ```
+
+## Visual Baseline Evidence
+
+`screenshotMatchesBaseline` assertions add visual regression evidence to the report:
+
+- baseline PNG path;
+- actual screenshot path;
+- diff PNG path;
+- changed pixel count;
+- changed ratio;
+- threshold;
+- pass or fail result.
+
+This keeps visual regression checks auditable. A failed run should show what changed, where the evidence was written, and which threshold was exceeded.

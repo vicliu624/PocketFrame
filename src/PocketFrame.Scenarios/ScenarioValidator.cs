@@ -119,7 +119,26 @@ public sealed class ScenarioValidator
                 case "screenshotexists":
                     Require(assertion.Label, $"{assertionName}.label is required.", errors);
                     break;
+                case "screenshotmatchesbaseline":
+                    Require(assertion.Label, $"{assertionName}.label is required.", errors);
+                    Require(assertion.Baseline, $"{assertionName}.baseline is required.", errors);
+                    if (assertion.Threshold < 0 || assertion.Threshold > 1)
+                    {
+                        errors.Add($"{assertionName}.threshold must be between 0 and 1.");
+                    }
+
+                    break;
                 case "framehashnotempty":
+                    break;
+                case "framehashequals":
+                case "framehashnotequals":
+                    Require(assertion.ExpectedHash, $"{assertionName}.expectedHash is required.", errors);
+                    break;
+                case "actionsucceeded":
+                case "actionfailed":
+                    Require(assertion.AfterAction, $"{assertionName}.afterAction is required.", errors);
+                    break;
+                case "allactionssucceeded":
                     break;
                 default:
                     errors.Add($"{assertionName}.type is unsupported: {assertion.Type}");

@@ -15,13 +15,13 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 
 ## Current Development Focus
 
-The `0.4.0` development focus is scenario actions and assertions. It moves scenario runs from passive state capture toward action execution, result checks, and CI-ready regression reports.
+The current development focus is `0.5.0 - Visual Baseline Regression`. It turns scenario reports from smoke-level evidence into visual regression evidence with baseline screenshots, diff images, changed-pixel ratios, and automatic failure captures.
 
 The current direction focuses on:
 
 - stable frame observation through framebuffer hashes and quiet-window waiting;
 - replayable automation traces for debugging and regression checks;
-- scenario runs that execute actions, evaluate assertions, and export reports;
+- scenario runs that execute actions, evaluate assertions, compare visual baselines, and export reports;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
 
@@ -223,7 +223,7 @@ Starter scenario:
 scenarios/cardputer-zero-openbox-smoke.json
 ```
 
-Scenarios describe device selection, VNC connection settings, display scale, capture output directory, run working directory, actions, and basic assertions.
+Scenarios describe device selection, VNC connection settings, display scale, capture output directory, run working directory, actions, visual baselines, failure captures, and assertions.
 
 Scenario files are declarative run descriptions. They are not a scripting language.
 
@@ -269,6 +269,9 @@ runs/<scenario-name>/<timestamp>/
   screenshots/
     initial-screen.png
     initial-device.png
+    failure-screen.png
+    failure-device.png
+    <assertion-id>-diff.png
   report.md
 ```
 
@@ -288,6 +291,24 @@ Supported first-version assertions:
 - `frameChanged`
 - `screenshotExists`
 - `frameHashNotEmpty`
+- `frameHashEquals`
+- `frameHashNotEquals`
+- `actionSucceeded`
+- `actionFailed`
+- `allActionsSucceeded`
+- `screenshotMatchesBaseline`
+
+Visual baseline assertions compare an actual screenshot label with a PNG baseline:
+
+```json
+{
+  "id": "after-ls-matches-baseline",
+  "type": "screenshotMatchesBaseline",
+  "label": "after-ls",
+  "baseline": "baselines/cardputer-zero-openbox/after-ls.png",
+  "threshold": 0.02
+}
+```
 
 ## Automation Loop
 
@@ -382,7 +403,7 @@ See `CHANGELOG.md` for release notes.
 - The MCP server expects `PocketFrame.App` to already be running.
 - `scenario run` currently expects the app to already be connected to the correct device and VNC session.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
-- Reports are generated from scenario, state, actions, assertions, trace, and screenshot artifacts; baseline comparison is still future work.
+- Reports are generated from scenario, state, actions, assertions, visual baseline diffs, trace, and screenshot artifacts.
 - Recording remains a placeholder service.
 - Device shells are still approximate and can be refined.
 
@@ -390,7 +411,7 @@ See `CHANGELOG.md` for release notes.
 
 - Improve RFB performance and add more encodings.
 - Add Tight and ZRLE VNC encoding support.
-- Add screenshot baseline comparison.
+- Improve screenshot baseline comparison with region matching and richer visual diffs.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.
 - Add more device profiles such as T-Deck and additional cyberdeck layouts.
 - Refine shell artwork and keyboard legends.
