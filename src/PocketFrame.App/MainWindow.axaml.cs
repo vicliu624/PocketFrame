@@ -39,8 +39,11 @@ public partial class MainWindow : Window
             await viewModel.InitializeAsync();
             automationPipeServer.Start();
             viewModel.AutomationStatus = "Automation: MCP pipe ready";
+            viewModel.LogAutomationActivity("MCP pipe ready");
         };
         Closed += async (_, _) => await automationPipeServer.DisposeAsync();
+        automationPipeServer.ActivityChanged += (_, activity) =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => viewModel.LogAutomationActivity(activity.DisplayText));
         viewModel.FocusSimulatorRequested += (_, _) => DeviceShell.Focus();
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);

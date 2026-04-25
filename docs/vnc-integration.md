@@ -10,11 +10,20 @@ Install a lightweight VNC environment:
 sudo apt install tigervnc-standalone-server openbox xterm
 ```
 
-Start a `340x170` VNC session:
+Start a `320x170` VNC session:
 
 ```bash
-vncserver :10 -geometry 340x170 -depth 24
+vncserver :10 -geometry 320x170 -depth 24
 ```
+
+If display `:10` is already running with an older geometry, stop it first and start it again:
+
+```bash
+vncserver -kill :10
+vncserver :10 -geometry 320x170 -depth 24
+```
+
+The running VNC desktop keeps the geometry it was started with. Updating PocketFrame profiles or docs does not resize an existing VNC session.
 
 Start a `1280x720` uConsole-style session:
 

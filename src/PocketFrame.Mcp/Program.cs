@@ -92,6 +92,12 @@ internal sealed class PocketFrameMcpServer
         tools = new object[]
         {
             Tool("pocketframe_get_state", "Get the current PocketFrame device, VNC, and framebuffer state.", new JsonObject()),
+            Tool("pocketframe_get_profiles", "List available PocketFrame device profiles.", new JsonObject()),
+            Tool("pocketframe_get_connections", "List saved VNC connection profiles without exposing passwords.", new JsonObject()),
+            Tool("pocketframe_select_device", "Select a device profile by id before connecting or running automation.", Properties(("deviceId", "string", "Device profile id.")), ["deviceId"]),
+            Tool("pocketframe_set_scale", "Set the simulator display scale.", Properties(("scale", "number", "Display scale.")), ["scale"]),
+            Tool("pocketframe_connect_vnc", "Connect VNC using a saved profileId or explicit host, port, password, deviceId, and scale.", Properties(("profileId", "string", "Optional saved connection id or name."), ("host", "string", "VNC host when profileId is not used."), ("port", "integer", "VNC port when profileId is not used."), ("password", "string", "Optional VNC password."), ("deviceId", "string", "Optional device profile id."), ("scale", "number", "Optional display scale."))),
+            Tool("pocketframe_disconnect_vnc", "Disconnect the current VNC session.", new JsonObject()),
             Tool("pocketframe_frame_hash", "Return the current framebuffer SHA-256 hash and frame index.", new JsonObject()),
             Tool("pocketframe_capture_screen", "Capture only the remote VNC screen area to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_capture_device", "Capture the rendered device shell and screen to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
@@ -113,6 +119,12 @@ internal sealed class PocketFrameMcpServer
         var response = name switch
         {
             "pocketframe_get_state" => await automationClient.SendAsync("get_state"),
+            "pocketframe_get_profiles" => await automationClient.SendAsync("get_profiles"),
+            "pocketframe_get_connections" => await automationClient.SendAsync("get_connections"),
+            "pocketframe_select_device" => await automationClient.SendAsync("select_device", ToParams<SelectDeviceParams>(arguments)),
+            "pocketframe_set_scale" => await automationClient.SendAsync("set_scale", ToParams<SetScaleParams>(arguments)),
+            "pocketframe_connect_vnc" => await automationClient.SendAsync("connect_vnc", ToParams<ConnectVncParams>(arguments), timeoutMs: 30000),
+            "pocketframe_disconnect_vnc" => await automationClient.SendAsync("disconnect_vnc"),
             "pocketframe_frame_hash" => await automationClient.SendAsync("frame_hash"),
             "pocketframe_capture_screen" => await automationClient.SendAsync("capture_screen", ToCaptureParams(arguments)),
             "pocketframe_capture_device" => await automationClient.SendAsync("capture_device", ToCaptureParams(arguments)),

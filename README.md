@@ -27,7 +27,7 @@ The current direction focuses on:
 
 ## Why PocketFrame Exists
 
-Small Linux devices often use unusual screen sizes such as `340x170`, `720x720`, or `1280x720`. A normal desktop window does not show whether an app feels usable on a tiny screen, inside a physical keyboard layout, or behind a device-specific interaction model.
+Small Linux devices often use unusual screen sizes such as `320x170`, `720x720`, or `1280x720`. A normal desktop window does not show whether an app feels usable on a tiny screen, inside a physical keyboard layout, or behind a device-specific interaction model.
 
 PocketFrame focuses on the whole-device usage context:
 
@@ -39,7 +39,7 @@ PocketFrame focuses on the whole-device usage context:
 
 The current built-in profiles include:
 
-- Cardputer Zero with a `340x170` screen;
+- Cardputer Zero with a `320x170` screen;
 - uConsole with a `1280x720` screen.
 
 ## What PocketFrame Is Not
@@ -139,7 +139,14 @@ On a Linux VM, WSL distro, or device:
 
 ```bash
 sudo apt install tigervnc-standalone-server openbox xterm
-vncserver :10 -geometry 340x170 -depth 24
+vncserver :10 -geometry 320x170 -depth 24
+```
+
+If an old `:10` session is already running with the wrong geometry, restart it:
+
+```bash
+vncserver -kill :10
+vncserver :10 -geometry 320x170 -depth 24
 ```
 
 For uConsole:
@@ -199,6 +206,12 @@ Example MCP client configuration:
 Available MCP tools:
 
 - `pocketframe_get_state`
+- `pocketframe_get_profiles`
+- `pocketframe_get_connections`
+- `pocketframe_select_device`
+- `pocketframe_set_scale`
+- `pocketframe_connect_vnc`
+- `pocketframe_disconnect_vnc`
 - `pocketframe_frame_hash`
 - `pocketframe_capture_screen`
 - `pocketframe_capture_device`
@@ -233,9 +246,15 @@ The CLI is intentionally small and does not replace MCP. Runtime commands still 
 
 ```bash
 pocketframe devices list
+pocketframe connections list
 pocketframe profiles validate
+pocketframe app select-device cardputer-zero
+pocketframe app set-scale 1
+pocketframe app connect-vnc --host 127.0.0.1 --port 5910 --device cardputer-zero --scale 1
+pocketframe app disconnect-vnc
 pocketframe scenario validate scenarios/cardputer-zero-openbox-smoke.json
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --prepare --report
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --update-baselines
 pocketframe capture screen captures/screen.png
 pocketframe capture device captures/device.png
@@ -254,10 +273,11 @@ See `docs/cli.md`.
 
 ## Scenario Runner
 
-`PocketFrame.Runner` turns a validated scenario into an auditable run directory. The first version expects `PocketFrame.App` to already be running and connected to VNC.
+`PocketFrame.Runner` turns a validated scenario into an auditable run directory. By default it uses the currently running app state. With `--prepare`, it selects the scenario device, sets the scenario scale, and connects VNC from the scenario connection settings before running.
 
 ```bash
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --prepare --report
 ```
 
 Output layout:
@@ -310,13 +330,13 @@ Visual baseline assertions compare an actual screenshot label with a PNG baselin
   "threshold": 0.02,
   "pixelTolerance": 8,
   "regions": [
-    { "x": 0, "y": 0, "width": 340, "height": 150 }
+    { "x": 0, "y": 0, "width": 320, "height": 150 }
   ],
   "ignoreRegions": [
     { "x": 300, "y": 0, "width": 40, "height": 20 }
   ],
   "maskRegions": [
-    { "x": 0, "y": 160, "width": 340, "height": 10 }
+    { "x": 0, "y": 160, "width": 320, "height": 10 }
   ]
 }
 ```
@@ -358,12 +378,14 @@ The inspector shows:
 
 It is a human debugging panel for the MCP bridge. It does not execute tools.
 
+The main window also shows a compact MCP activity panel in the lower-left corner of the simulator area. It lists the latest AI requests and simulator responses, such as typed text, key presses, screen clicks, captures, VNC connection preparation, and result summaries, without exposing VNC passwords.
+
 ## Coordinate System
 
 Automation commands use device-level coordinates:
 
 - `pocketframe_click_screen` uses VNC framebuffer coordinates.
-- Cardputer Zero screen coordinates are `340x170`.
+- Cardputer Zero screen coordinates are `320x170`.
 - uConsole screen coordinates are `1280x720`.
 - Host window position and OS display scaling are ignored by automation tools.
 
@@ -371,7 +393,7 @@ The GUI still supports visual scaling for humans, but automation operates on sta
 
 ## Pixel Scale
 
-PocketFrame treats `1x` as physical-pixel scale. On desktops configured to 125%, 150%, or 200% display scaling, the simulator compensates for the OS render scale so a Cardputer Zero `340x170` screen occupies approximately `340x170` physical monitor pixels.
+PocketFrame treats `1x` as physical-pixel scale. On desktops configured to 125%, 150%, or 200% display scaling, the simulator compensates for the OS render scale so a Cardputer Zero `320x170` screen occupies approximately `320x170` physical monitor pixels.
 
 ## Device Profiles
 
@@ -412,9 +434,9 @@ See `CHANGELOG.md` for release notes.
 - The RFB client is still intentionally minimal.
 - Raw, CopyRect, and Hextile encodings are supported; Tight and ZRLE are deferred.
 - MCP automation controls the running GUI app through a local named pipe.
-- The CLI is a human/CI helper and is not a second automation control plane.
+- The CLI is a human/CI helper and is not the AI-facing control plane.
 - The MCP server expects `PocketFrame.App` to already be running.
-- `scenario run` currently expects the app to already be connected to the correct device and VNC session.
+- `scenario run` can prepare the device, scale, and VNC connection with `--prepare`, but it still expects `PocketFrame.App` to already be running.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
 - Reports are generated from scenario, state, actions, assertions, visual baseline diffs, trace, and screenshot artifacts.
 - Recording remains a placeholder service.

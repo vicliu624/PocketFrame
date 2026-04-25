@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using PocketFrame.App.Models;
 using PocketFrame.App.Services;
 using PocketFrame.App.ViewModels;
 using PocketFrame.App.Vnc;
@@ -52,6 +53,82 @@ public sealed class AutomationService : IAutomationService
             VncStatus = viewModel.Vnc.Status,
             LastFrameUpdatedAt = vncClientService.LastFrameUpdatedAt
         });
+    }
+
+    public async Task<DeviceProfilesResult> GetProfilesAsync()
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() => new DeviceProfilesResult
+        {
+            Profiles = viewModel.Profiles.Select(profile => new DeviceProfileSummary
+            {
+                Id = profile.Id,
+                Name = profile.Name,
+                ScreenWidth = profile.ScreenWidth,
+                ScreenHeight = profile.ScreenHeight,
+                ShellWidth = profile.ShellWidth,
+                ShellHeight = profile.ShellHeight
+            }).ToList()
+        });
+    }
+
+    public async Task<ConnectionProfilesResult> GetConnectionsAsync()
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() => new ConnectionProfilesResult
+        {
+            Connections = viewModel.ConnectionProfiles.Select(profile => new ConnectionProfileSummary
+            {
+                Id = profile.Id,
+                Name = profile.Name,
+                Host = profile.Host,
+                Port = profile.Port,
+                DeviceId = profile.DeviceId,
+                Scale = profile.Scale,
+                HasPassword = !string.IsNullOrEmpty(profile.Password)
+            }).ToList()
+        });
+    }
+
+    public async Task<AutomationOperationResult> SelectDeviceAsync(string deviceId)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var profile = viewModel.Profiles.FirstOrDefault(item => item.Id.Equals(deviceId, StringComparison.OrdinalIgnoreCase)) ??
+                          throw new AutomationException(AutomationErrorCodes.InvalidRequest, $"Unknown device profile '{deviceId}'.");
+            viewModel.SelectedProfile = profile;
+            return new AutomationOperationResult { Message = $"Selected device {profile.Id}." };
+        });
+    }
+
+    public async Task<AutomationOperationResult> SetScaleAsync(double scale)
+    {
+        if (scale <= 0)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "Scale must be greater than 0.");
+        }
+
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            viewModel.SetScale(scale);
+            return new AutomationOperationResult { Message = $"Scale set to {scale:0.##}." };
+        });
+    }
+
+    public async Task<AutomationOperationResult> ConnectVncAsync(ConnectVncParams parameters)
+    {
+        var profile = await Dispatcher.UIThread.InvokeAsync(() => ResolveConnectionProfile(parameters));
+        await Dispatcher.UIThread.InvokeAsync(async () => await viewModel.ConnectAsync(profile));
+        if (!viewModel.Vnc.Status.StartsWith("Connected", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AutomationException(AutomationErrorCodes.NotConnected, viewModel.Vnc.Status);
+        }
+
+        return new AutomationOperationResult { Message = $"Connected {profile.Host}:{profile.Port} using device {profile.DeviceId}." };
+    }
+
+    public async Task<AutomationOperationResult> DisconnectVncAsync()
+    {
+        await viewModel.DisconnectAsync();
+        return new AutomationOperationResult { Message = "Disconnected VNC." };
     }
 
     public Task<FrameHashResult> GetFrameHashAsync()
@@ -447,6 +524,42 @@ public sealed class AutomationService : IAutomationService
 
         var directory = Path.Combine(Environment.CurrentDirectory, "captures");
         return Path.Combine(directory, $"PocketFrame_{deviceId}_{captureKind}_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+    }
+
+    private ConnectionProfile ResolveConnectionProfile(ConnectVncParams parameters)
+    {
+        if (!string.IsNullOrWhiteSpace(parameters.ProfileId))
+        {
+            var saved = viewModel.ConnectionProfiles.FirstOrDefault(profile =>
+                profile.Id.Equals(parameters.ProfileId, StringComparison.OrdinalIgnoreCase) ||
+                profile.Name.Equals(parameters.ProfileId, StringComparison.OrdinalIgnoreCase));
+            if (saved is null)
+            {
+                throw new AutomationException(AutomationErrorCodes.InvalidRequest, $"Unknown connection profile '{parameters.ProfileId}'.");
+            }
+
+            return saved;
+        }
+
+        if (string.IsNullOrWhiteSpace(parameters.Host))
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "connect_vnc requires profileId or host.");
+        }
+
+        if (parameters.Port <= 0 || parameters.Port > 65535)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "connect_vnc port must be between 1 and 65535.");
+        }
+
+        return new ConnectionProfile
+        {
+            Name = "Automation",
+            Host = parameters.Host,
+            Port = parameters.Port,
+            Password = parameters.Password,
+            DeviceId = string.IsNullOrWhiteSpace(parameters.DeviceId) ? viewModel.SelectedProfile?.Id ?? "cardputer-zero" : parameters.DeviceId,
+            Scale = parameters.Scale <= 0 ? 1 : parameters.Scale
+        };
     }
 
     private static async Task SaveFramebufferAsync(RfbFramebuffer framebuffer, string path)

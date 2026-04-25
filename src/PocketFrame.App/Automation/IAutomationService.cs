@@ -5,6 +5,12 @@ namespace PocketFrame.App.Automation;
 public interface IAutomationService
 {
     Task<AutomationState> GetStateAsync();
+    Task<DeviceProfilesResult> GetProfilesAsync();
+    Task<ConnectionProfilesResult> GetConnectionsAsync();
+    Task<AutomationOperationResult> SelectDeviceAsync(string deviceId);
+    Task<AutomationOperationResult> SetScaleAsync(double scale);
+    Task<AutomationOperationResult> ConnectVncAsync(ConnectVncParams parameters);
+    Task<AutomationOperationResult> DisconnectVncAsync();
     Task<FrameHashResult> GetFrameHashAsync();
     Task<CaptureResult> CaptureScreenAsync(string? outputPath);
     Task<CaptureResult> CaptureDeviceAsync(string? outputPath);

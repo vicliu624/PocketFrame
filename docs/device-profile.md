@@ -12,7 +12,7 @@ Shared profile models, loading, and validation live in `src/PocketFrame.DevicePr
   "name": "Cardputer Zero",
   "backgroundColor": "#121722",
   "screen": {
-    "width": 340,
+    "width": 320,
     "height": 170,
     "x": 80,
     "y": 40,

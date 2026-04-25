@@ -4,7 +4,7 @@
 
 - Create the Avalonia desktop project.
 - Render a Cardputer Zero-style shell.
-- Reserve a `340x170` screen viewport.
+- Reserve a `320x170` screen viewport.
 - Support `1x`, `2x`, `3x`, and `4x` display scaling.
 - Show virtual button hit areas.
 

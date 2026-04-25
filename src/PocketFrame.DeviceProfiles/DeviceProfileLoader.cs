@@ -50,7 +50,7 @@ public sealed class DeviceProfileLoader
     {
         Id = "cardputer-zero",
         Name = "Cardputer Zero",
-        ScreenWidth = 340,
+        ScreenWidth = 320,
         ScreenHeight = 170,
         ShellWidth = 800,
         ShellHeight = 520,

@@ -30,7 +30,7 @@ The `PocketFrame.Automation` project contains shared command and response models
 - `ScreenViewport`: clips pointer input and forwards screen pointer events to VNC.
 - `VncFramebufferView`: displays the latest VNC framebuffer with nearest-neighbor scaling.
 
-`DeviceShellView` compensates for Avalonia render scaling so `1x` means physical-pixel scale. For example, a `340x170` device screen is intended to occupy `340x170` physical monitor pixels even when the OS desktop scale is above 100%.
+`DeviceShellView` compensates for Avalonia render scaling so `1x` means physical-pixel scale. For example, a `320x170` device screen is intended to occupy `320x170` physical monitor pixels even when the OS desktop scale is above 100%.
 
 Views do not open sockets and do not parse RFB protocol messages.
 

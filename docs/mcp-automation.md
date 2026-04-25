@@ -28,7 +28,9 @@ Start the GUI app first:
 dotnet run --project src/PocketFrame.App/PocketFrame.App.csproj
 ```
 
-Connect a VNC session from the PocketFrame GUI. The automation pipe is started automatically when the main window opens. The status bar shows `Automation: MCP pipe ready` when the app-side pipe server is available.
+The automation pipe is started automatically when the main window opens. The status bar shows `Automation: MCP pipe ready` when the app-side pipe server is available.
+
+You can connect a VNC session from the GUI, or let an MCP client prepare the app with `pocketframe_select_device`, `pocketframe_set_scale`, and `pocketframe_connect_vnc`.
 
 ## MCP Startup Model
 
@@ -75,6 +77,84 @@ Use the absolute project path that matches your checkout:
 ### `pocketframe_get_state`
 
 Returns the current selected device, VNC status, screen size, shell size, frame index, current frame hash, and last framebuffer update time.
+
+Arguments:
+
+```json
+{}
+```
+
+### `pocketframe_get_profiles`
+
+Lists available device profiles.
+
+Arguments:
+
+```json
+{}
+```
+
+### `pocketframe_get_connections`
+
+Lists saved connection profiles without exposing stored passwords.
+
+Arguments:
+
+```json
+{}
+```
+
+### `pocketframe_select_device`
+
+Selects a device profile by id.
+
+Arguments:
+
+```json
+{
+  "deviceId": "cardputer-zero"
+}
+```
+
+### `pocketframe_set_scale`
+
+Sets the simulator display scale.
+
+Arguments:
+
+```json
+{
+  "scale": 1
+}
+```
+
+### `pocketframe_connect_vnc`
+
+Connects VNC either from a saved profile or explicit connection settings.
+
+Arguments with a saved profile:
+
+```json
+{
+  "profileId": "WSL Cardputer Zero"
+}
+```
+
+Arguments with explicit settings:
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 5910,
+  "password": "",
+  "deviceId": "cardputer-zero",
+  "scale": 1
+}
+```
+
+### `pocketframe_disconnect_vnc`
+
+Disconnects the current VNC session.
 
 Arguments:
 
@@ -281,7 +361,7 @@ Arguments:
 Automation tools use device-level coordinates:
 
 - `click_screen.x` and `click_screen.y` are VNC framebuffer coordinates.
-- Cardputer Zero uses a `340x170` screen coordinate space.
+- Cardputer Zero uses a `320x170` screen coordinate space.
 - uConsole uses a `1280x720` screen coordinate space.
 - Host window position, OS display scaling, and rendered shell scale are intentionally ignored by automation commands.
 

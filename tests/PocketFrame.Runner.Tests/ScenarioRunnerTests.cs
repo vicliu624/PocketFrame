@@ -197,6 +197,31 @@ public sealed class ScenarioRunnerTests
         Assert.Contains(result.Assertions, assertion => assertion.Message == "Baseline updated.");
     }
 
+    [Fact]
+    public async Task RunCanPrepareEnvironmentBeforeStateCapture()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "prepare",
+            DeviceId = "cardputer-zero",
+            Connection = new ScenarioConnection { Host = "127.0.0.1", Port = 5910 },
+            Scale = 1,
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath, new ScenarioRunnerOptions { PrepareEnvironment = true });
+
+        Assert.True(result.Success);
+        Assert.Contains(client.Methods, method => method == "select_device");
+        Assert.Contains(client.Methods, method => method == "set_scale");
+        Assert.Contains(client.Methods, method => method == "connect_vnc");
+        Assert.True(client.Methods.IndexOf("connect_vnc") < client.Methods.IndexOf("get_state"));
+    }
+
     private static ScenarioRunner CreateRunner(IAutomationClient client) =>
         new(new ScenarioLoader(), new ScenarioValidator(), client, new MarkdownReportWriter());
 
@@ -227,8 +252,9 @@ public sealed class ScenarioRunnerTests
             object result = method switch
             {
                 "get_state" => state,
-                "frame_hash" => new FrameHashResult { FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}", Width = 340, Height = 170 },
+                "frame_hash" => new FrameHashResult { FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}", Width = 320, Height = 170 },
                 "wait_stable_frame" => new WaitStableFrameResult { Stable = true, FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}" },
+                "select_device" or "set_scale" or "connect_vnc" or "disconnect_vnc" => new AutomationOperationResult { Ok = true, Message = method },
                 "capture_screen" => await CaptureAsync(parameters),
                 "capture_device" => await CaptureAsync(parameters),
                 "type_text" or "press_key" or "press_button" or "click_screen" => Tap(),

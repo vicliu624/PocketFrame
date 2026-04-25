@@ -116,13 +116,13 @@ Visual baseline assertions compare a captured screenshot label with a PNG baseli
   "threshold": 0.02,
   "pixelTolerance": 8,
   "regions": [
-    { "x": 0, "y": 0, "width": 340, "height": 150 }
+    { "x": 0, "y": 0, "width": 320, "height": 150 }
   ],
   "ignoreRegions": [
     { "x": 300, "y": 0, "width": 40, "height": 20 }
   ],
   "maskRegions": [
-    { "x": 0, "y": 160, "width": 340, "height": 10 }
+    { "x": 0, "y": 160, "width": 320, "height": 10 }
   ]
 }
 ```
@@ -165,10 +165,11 @@ When an action or assertion fails, the runner captures `failure-screen.png` and 
 
 ## Running
 
-The first runner expects `PocketFrame.App` to already be open, connected to VNC, and set to the scenario device.
+The runner expects `PocketFrame.App` to already be open. By default it uses the current app device and VNC connection. With `--prepare`, it selects the scenario device, applies the scenario scale, and connects VNC from `connection`.
 
 ```bash
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --prepare --report
 ```
 
 The runner creates:

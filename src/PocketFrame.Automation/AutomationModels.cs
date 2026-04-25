@@ -244,3 +244,102 @@ public sealed class ReplayLogParams
     [JsonPropertyName("delayMs")]
     public int DelayMs { get; set; }
 }
+
+public sealed class DeviceProfilesResult
+{
+    [JsonPropertyName("profiles")]
+    public List<DeviceProfileSummary> Profiles { get; set; } = [];
+}
+
+public sealed class DeviceProfileSummary
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("screenWidth")]
+    public int ScreenWidth { get; set; }
+
+    [JsonPropertyName("screenHeight")]
+    public int ScreenHeight { get; set; }
+
+    [JsonPropertyName("shellWidth")]
+    public double ShellWidth { get; set; }
+
+    [JsonPropertyName("shellHeight")]
+    public double ShellHeight { get; set; }
+}
+
+public sealed class ConnectionProfilesResult
+{
+    [JsonPropertyName("connections")]
+    public List<ConnectionProfileSummary> Connections { get; set; } = [];
+}
+
+public sealed class ConnectionProfileSummary
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("host")]
+    public string Host { get; set; } = string.Empty;
+
+    [JsonPropertyName("port")]
+    public int Port { get; set; }
+
+    [JsonPropertyName("deviceId")]
+    public string DeviceId { get; set; } = string.Empty;
+
+    [JsonPropertyName("scale")]
+    public double Scale { get; set; }
+
+    [JsonPropertyName("hasPassword")]
+    public bool HasPassword { get; set; }
+}
+
+public sealed class SelectDeviceParams
+{
+    [JsonPropertyName("deviceId")]
+    public string DeviceId { get; set; } = string.Empty;
+}
+
+public sealed class SetScaleParams
+{
+    [JsonPropertyName("scale")]
+    public double Scale { get; set; } = 1;
+}
+
+public sealed class ConnectVncParams
+{
+    [JsonPropertyName("profileId")]
+    public string ProfileId { get; set; } = string.Empty;
+
+    [JsonPropertyName("host")]
+    public string Host { get; set; } = string.Empty;
+
+    [JsonPropertyName("port")]
+    public int Port { get; set; }
+
+    [JsonPropertyName("password")]
+    public string Password { get; set; } = string.Empty;
+
+    [JsonPropertyName("deviceId")]
+    public string DeviceId { get; set; } = string.Empty;
+
+    [JsonPropertyName("scale")]
+    public double Scale { get; set; } = 1;
+}
+
+public sealed class AutomationOperationResult
+{
+    [JsonPropertyName("ok")]
+    public bool Ok { get; set; } = true;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}

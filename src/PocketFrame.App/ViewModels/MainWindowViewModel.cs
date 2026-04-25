@@ -52,6 +52,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<DeviceProfile> Profiles { get; } = new();
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = new();
+    public ObservableCollection<string> AutomationActivity { get; } = new();
     public IReadOnlyList<double> Scales { get; } = PixelScaling.FixedScales;
     public VncViewModel Vnc { get; }
     public DeviceShellViewModel DeviceShell { get; }
@@ -246,6 +247,16 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         LastInputStatus = $"Input: {message}";
         InputDiagnostics.Write("Input", message);
+    }
+
+    public void LogAutomationActivity(string message)
+    {
+        AutomationStatus = $"Automation: {message}";
+        AutomationActivity.Insert(0, message);
+        while (AutomationActivity.Count > 6)
+        {
+            AutomationActivity.RemoveAt(AutomationActivity.Count - 1);
+        }
     }
 
     private async Task ToggleRecordingAsync()

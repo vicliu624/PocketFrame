@@ -22,7 +22,9 @@ internal static class PocketFrameCli
             return args[0] switch
             {
                 "devices" => await DevicesAsync(args.Skip(1).ToArray()),
+                "connections" => await ConnectionsAsync(args.Skip(1).ToArray()),
                 "profiles" => await ProfilesAsync(args.Skip(1).ToArray()),
+                "app" => await AppAsync(args.Skip(1).ToArray()),
                 "scenario" => await ScenarioAsync(args.Skip(1).ToArray()),
                 "capture" => await CaptureAsync(args.Skip(1).ToArray()),
                 "trace" => await TraceAsync(args.Skip(1).ToArray()),
@@ -86,11 +88,44 @@ internal static class PocketFrameCli
         return failed == 0 ? 0 : 1;
     }
 
+    private static async Task<int> ConnectionsAsync(string[] args)
+    {
+        if (args is not ["list"])
+        {
+            return Fail("Usage: pocketframe connections list");
+        }
+
+        var response = await new AutomationPipeClient().SendAsync("get_connections");
+        return PrintAutomationResponse(response);
+    }
+
+    private static async Task<int> AppAsync(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            return Fail("Usage: pocketframe app select-device|set-scale|connect-vnc|disconnect-vnc ...");
+        }
+
+        var client = new AutomationPipeClient();
+        var response = args[0] switch
+        {
+            "select-device" when args.Length >= 2 => await client.SendAsync("select_device", new SelectDeviceParams { DeviceId = args[1] }),
+            "set-scale" when args.Length >= 2 && double.TryParse(args[1], out var scale) => await client.SendAsync("set_scale", new SetScaleParams { Scale = scale }),
+            "connect-vnc" => await client.SendAsync("connect_vnc", ReadConnectVncParams(args), timeoutMs: 30000),
+            "disconnect-vnc" => await client.SendAsync("disconnect_vnc"),
+            _ => null
+        };
+
+        return response is null
+            ? Fail("Usage: pocketframe app select-device deviceId | set-scale scale | connect-vnc [--profile id|--host host --port port --password password --device deviceId --scale scale] | disconnect-vnc")
+            : PrintAutomationResponse(response);
+    }
+
     private static async Task<int> ScenarioAsync(string[] args)
     {
         if (args.Length < 2)
         {
-            return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines]");
+            return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines] [--prepare]");
         }
 
         if (args[0] == "validate")
@@ -103,13 +138,14 @@ internal static class PocketFrameCli
             var result = await new ScenarioRunner().RunAsync(args[1], new ScenarioRunnerOptions
             {
                 GenerateReport = !args.Contains("--no-report", StringComparer.OrdinalIgnoreCase),
-                UpdateBaselines = args.Contains("--update-baselines", StringComparer.OrdinalIgnoreCase)
+                UpdateBaselines = args.Contains("--update-baselines", StringComparer.OrdinalIgnoreCase),
+                PrepareEnvironment = args.Contains("--prepare", StringComparer.OrdinalIgnoreCase)
             });
             Console.WriteLine(JsonSerializer.Serialize(result, AutomationJson.Options));
             return result.ExitCode;
         }
 
-        return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines]");
+        return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines] [--prepare]");
     }
 
     private static async Task<int> ValidateScenarioAsync(string path)
@@ -222,6 +258,25 @@ internal static class PocketFrameCli
         return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
     }
 
+    private static ConnectVncParams ReadConnectVncParams(string[] args)
+    {
+        return new ConnectVncParams
+        {
+            ProfileId = ReadStringOption(args, "--profile") ?? string.Empty,
+            Host = ReadStringOption(args, "--host") ?? string.Empty,
+            Port = ReadIntOption(args, "--port") ?? 0,
+            Password = ReadStringOption(args, "--password") ?? string.Empty,
+            DeviceId = ReadStringOption(args, "--device") ?? string.Empty,
+            Scale = ReadDoubleOption(args, "--scale") ?? 1
+        };
+    }
+
+    private static double? ReadDoubleOption(string[] args, string name)
+    {
+        var value = ReadStringOption(args, name);
+        return double.TryParse(value, out var parsed) ? parsed : null;
+    }
+
     private static int Fail(string message)
     {
         Console.Error.WriteLine(message);
@@ -234,9 +289,14 @@ internal static class PocketFrameCli
         Console.WriteLine();
         Console.WriteLine("Commands:");
         Console.WriteLine("  pocketframe devices list");
+        Console.WriteLine("  pocketframe connections list");
         Console.WriteLine("  pocketframe profiles validate [profile.json|devices-root]");
+        Console.WriteLine("  pocketframe app select-device deviceId");
+        Console.WriteLine("  pocketframe app set-scale scale");
+        Console.WriteLine("  pocketframe app connect-vnc [--profile id|--host host --port port --password password --device deviceId --scale scale]");
+        Console.WriteLine("  pocketframe app disconnect-vnc");
         Console.WriteLine("  pocketframe scenario validate scenario.json");
-        Console.WriteLine("  pocketframe scenario run scenario.json [--report|--no-report] [--update-baselines]");
+        Console.WriteLine("  pocketframe scenario run scenario.json [--report|--no-report] [--update-baselines] [--prepare]");
         Console.WriteLine("  pocketframe capture screen [output.png]");
         Console.WriteLine("  pocketframe capture device [output.png]");
         Console.WriteLine("  pocketframe trace show [--limit n]");

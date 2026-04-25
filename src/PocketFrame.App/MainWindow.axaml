@@ -36,7 +36,38 @@
         <MenuItem Header="Recording Placeholder" Command="{Binding RecordingCommand}" />
       </MenuItem>
     </Menu>
-    <views:DeviceShellView Grid.Row="1" x:Name="DeviceShell" DataContext="{Binding DeviceShell}" />
+    <Grid Grid.Row="1">
+      <views:DeviceShellView x:Name="DeviceShell" DataContext="{Binding DeviceShell}" />
+      <Border HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Margin="12"
+              Padding="10"
+              Width="360"
+              MaxHeight="170"
+              Background="#eeffffff"
+              BorderBrush="#c7d4df"
+              BorderThickness="1"
+              CornerRadius="8"
+              IsHitTestVisible="False">
+        <StackPanel>
+          <TextBlock Text="MCP Activity"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Foreground="#1b3344" />
+          <ItemsControl ItemsSource="{Binding AutomationActivity}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}"
+                           FontFamily="Consolas"
+                           FontSize="11"
+                           Foreground="#263238"
+                           TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </Grid>
     <Border Grid.Row="2" Padding="8" Background="#f3f3f3" BorderBrush="#d0d0d0" BorderThickness="0,1,0,0">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
         <TextBlock Text="{Binding SelectedProfile.Name, FallbackValue=No device}" Foreground="#222222" />

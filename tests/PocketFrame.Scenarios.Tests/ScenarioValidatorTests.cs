@@ -60,9 +60,9 @@ public sealed class ScenarioValidatorTests
                     Baseline = "baselines/after-ls.png",
                     Threshold = 0.02,
                     PixelTolerance = 8,
-                    Regions = { new ScenarioRegion { X = 0, Y = 0, Width = 340, Height = 150 } },
+                    Regions = { new ScenarioRegion { X = 0, Y = 0, Width = 320, Height = 150 } },
                     IgnoreRegions = { new ScenarioRegion { X = 300, Y = 0, Width = 40, Height = 20 } },
-                    MaskRegions = { new ScenarioRegion { X = 0, Y = 160, Width = 340, Height = 10 } }
+                    MaskRegions = { new ScenarioRegion { X = 0, Y = 160, Width = 320, Height = 10 } }
                 },
                 new ScenarioAssertion { Id = "hash-equals", Type = "frameHashEquals", ExpectedHash = "abc" },
                 new ScenarioAssertion { Id = "actions-ok", Type = "allActionsSucceeded" }

@@ -60,6 +60,11 @@ public sealed class ScenarioRunner
         Directory.CreateDirectory(context.ScreenshotsDirectory);
         await scenarioLoader.SaveAsync(scenario, result.Artifacts.ScenarioPath, cancellationToken);
 
+        if (options.PrepareEnvironment)
+        {
+            await PrepareEnvironmentAsync(scenario, options, cancellationToken);
+        }
+
         var state = await automationClient.SendAsync<AutomationState>("get_state", cancellationToken: cancellationToken);
         await WriteJsonAsync(result.Artifacts.StatePath, state, cancellationToken);
         if (!state.Connected)
@@ -120,6 +125,30 @@ public sealed class ScenarioRunner
             FrameIndex = device.FrameIndex,
             FrameHash = frame.FrameHash
         });
+    }
+
+    private async Task PrepareEnvironmentAsync(ScenarioDefinition scenario, ScenarioRunnerOptions options, CancellationToken cancellationToken)
+    {
+        await automationClient.SendAsync<AutomationOperationResult>(
+            "select_device",
+            new SelectDeviceParams { DeviceId = scenario.DeviceId },
+            cancellationToken: cancellationToken);
+        await automationClient.SendAsync<AutomationOperationResult>(
+            "set_scale",
+            new SetScaleParams { Scale = scenario.Scale <= 0 ? 1 : scenario.Scale },
+            cancellationToken: cancellationToken);
+        await automationClient.SendAsync<AutomationOperationResult>(
+            "connect_vnc",
+            new ConnectVncParams
+            {
+                Host = scenario.Connection.Host,
+                Port = scenario.Connection.Port,
+                Password = scenario.Connection.Password,
+                DeviceId = scenario.DeviceId,
+                Scale = scenario.Scale <= 0 ? 1 : scenario.Scale
+            },
+            timeoutMs: options.StableTimeoutMs + 30000,
+            cancellationToken: cancellationToken);
     }
 
     private async Task<ScenarioActionResult> ExecuteActionAsync(ScenarioAction action, RunResult runResult, RunContext context, CancellationToken cancellationToken)

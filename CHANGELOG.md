@@ -4,6 +4,22 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.7.0] - 2026-04-25
+
+### Added
+
+- Added a compact lower-left MCP activity panel in the main window.
+- Added app-side automation activity events so the UI can show recent MCP commands and results.
+- Expanded the MCP activity panel to show readable AI requests and simulator responses while hiding sensitive VNC password values.
+- Added automation methods for listing profiles and connections, selecting devices, setting scale, connecting VNC, and disconnecting VNC.
+- Added MCP tools for environment preparation before AI interaction.
+- Added CLI helpers for app environment preparation.
+- Added `scenario run --prepare` to select the scenario device, set scale, and connect VNC before running.
+
+### Changed
+
+- Corrected the Cardputer Zero screen specification from `340x170` to `320x170`.
+
 ## [0.6.0] - 2026-04-25
 
 ### Added
