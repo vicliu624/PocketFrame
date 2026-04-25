@@ -15,13 +15,13 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 
 ## Current Development Focus
 
-The `0.3.0` development focus is scenario running and regression reports. It turns scenario files into concrete, auditable run directories while keeping MCP as the AI-facing automation path.
+The `0.4.0` development focus is scenario actions and assertions. It moves scenario runs from passive state capture toward action execution, result checks, and CI-ready regression reports.
 
 The current direction focuses on:
 
 - stable frame observation through framebuffer hashes and quiet-window waiting;
 - replayable automation traces for debugging and regression checks;
-- scenario runs that export state, screenshots, traces, and reports;
+- scenario runs that execute actions, evaluate assertions, and export reports;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
 
@@ -223,9 +223,9 @@ Starter scenario:
 scenarios/cardputer-zero-openbox-smoke.json
 ```
 
-Scenarios currently describe device selection, VNC connection settings, display scale, capture output directory, and run working directory. They are the foundation for future CLI, MCP-runner, CI, and report workflows.
+Scenarios describe device selection, VNC connection settings, display scale, capture output directory, run working directory, actions, and basic assertions.
 
-Scenario files are configuration, not test scripts. They deliberately do not own VNC, UI state, actions, assertions, or reports.
+Scenario files are declarative run descriptions. They are not a scripting language.
 
 ## CLI
 
@@ -271,6 +271,23 @@ runs/<scenario-name>/<timestamp>/
     initial-device.png
   report.md
 ```
+
+Supported first-version actions:
+
+- `waitStableFrame`
+- `captureScreen`
+- `captureDevice`
+- `pressKey`
+- `pressButton`
+- `clickScreen`
+- `typeText`
+- `saveTrace`
+
+Supported first-version assertions:
+
+- `frameChanged`
+- `screenshotExists`
+- `frameHashNotEmpty`
 
 ## Automation Loop
 
@@ -365,7 +382,7 @@ See `CHANGELOG.md` for release notes.
 - The MCP server expects `PocketFrame.App` to already be running.
 - `scenario run` currently expects the app to already be connected to the correct device and VNC session.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
-- Reports are generated from scenario, state, trace, and screenshot artifacts; richer assertion and baseline comparison are still future work.
+- Reports are generated from scenario, state, actions, assertions, trace, and screenshot artifacts; baseline comparison is still future work.
 - Recording remains a placeholder service.
 - Device shells are still approximate and can be refined.
 
@@ -373,7 +390,6 @@ See `CHANGELOG.md` for release notes.
 
 - Improve RFB performance and add more encodings.
 - Add Tight and ZRLE VNC encoding support.
-- Add first-class scenario actions and assertions.
 - Add screenshot baseline comparison.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.
 - Add more device profiles such as T-Deck and additional cyberdeck layouts.

@@ -185,7 +185,8 @@ internal static class PocketFrameCli
             RunId = Path.GetFileNameWithoutExtension(outPath),
             RunDirectory = Path.GetDirectoryName(Path.GetFullPath(outPath)) ?? Environment.CurrentDirectory,
             Scenario = scenario,
-            Trace = trace
+            Trace = trace,
+            Success = true
         };
         var path = await new MarkdownReportWriter().WriteAsync(report, outPath);
         Console.WriteLine(path);

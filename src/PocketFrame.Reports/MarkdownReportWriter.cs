@@ -17,6 +17,15 @@ public sealed class MarkdownReportWriter
         var builder = new StringBuilder();
         builder.AppendLine($"# PocketFrame Run Report: {report.RunId}");
         builder.AppendLine();
+        builder.AppendLine("## Summary");
+        builder.AppendLine();
+        builder.AppendLine($"- Result: `{(report.Success ? "PASS" : "FAIL")}`");
+        builder.AppendLine($"- Actions: `{report.ActionResults.Count}`");
+        builder.AppendLine($"- Passed assertions: `{report.AssertionResults.Count(assertion => assertion.Passed)}`");
+        builder.AppendLine($"- Failed assertions: `{report.AssertionResults.Count(assertion => !assertion.Passed)}`");
+        builder.AppendLine($"- Screenshots: `{report.Screenshots.Count}`");
+        builder.AppendLine($"- Errors: `{report.Errors.Count}`");
+        builder.AppendLine();
         builder.AppendLine("## Scenario");
         builder.AppendLine();
         builder.AppendLine($"- Name: `{report.Scenario?.Name ?? "unknown"}`");
@@ -33,12 +42,36 @@ public sealed class MarkdownReportWriter
         builder.AppendLine();
         builder.AppendLine("## Actions");
         builder.AppendLine();
-        builder.AppendLine("| Step | Method | OK | Before | After | Error |");
-        builder.AppendLine("| ---: | --- | --- | ---: | ---: | --- |");
-        for (var index = 0; index < report.Trace.Count; index++)
+        if (report.ActionResults.Count > 0)
         {
-            var entry = report.Trace[index];
-            builder.AppendLine($"| {index + 1} | `{entry.Method}` | `{entry.Ok}` | `{entry.FrameIndexBefore}` | `{entry.FrameIndexAfter}` | `{Escape(entry.ErrorCode)}` |");
+            builder.AppendLine("| Step | Id | Type | OK | Before | After | Hash Before | Hash After | Artifact | Error |");
+            builder.AppendLine("| ---: | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |");
+            for (var index = 0; index < report.ActionResults.Count; index++)
+            {
+                var action = report.ActionResults[index];
+                builder.AppendLine($"| {index + 1} | `{Escape(action.Id)}` | `{Escape(action.Type)}` | `{action.Ok}` | `{action.FrameIndexBefore}` | `{action.FrameIndexAfter}` | `{ShortHash(action.FrameHashBefore)}` | `{ShortHash(action.FrameHashAfter)}` | `{Escape(action.ArtifactPath)}` | `{Escape(action.Error)}` |");
+            }
+        }
+        else
+        {
+            builder.AppendLine("| Step | Method | OK | Before | After | Error |");
+            builder.AppendLine("| ---: | --- | --- | ---: | ---: | --- |");
+            for (var index = 0; index < report.Trace.Count; index++)
+            {
+                var entry = report.Trace[index];
+                builder.AppendLine($"| {index + 1} | `{entry.Method}` | `{entry.Ok}` | `{entry.FrameIndexBefore}` | `{entry.FrameIndexAfter}` | `{Escape(entry.ErrorCode)}` |");
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## Assertions");
+        builder.AppendLine();
+        builder.AppendLine("| Step | Id | Type | Result | Expected | Actual | Message |");
+        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | --- |");
+        for (var index = 0; index < report.AssertionResults.Count; index++)
+        {
+            var assertion = report.AssertionResults[index];
+            builder.AppendLine($"| {index + 1} | `{Escape(assertion.Id)}` | `{Escape(assertion.Type)}` | `{(assertion.Passed ? "PASS" : "FAIL")}` | `{Escape(assertion.Expected)}` | `{Escape(assertion.Actual)}` | `{Escape(assertion.Message)}` |");
         }
 
         builder.AppendLine();
@@ -69,4 +102,5 @@ public sealed class MarkdownReportWriter
     }
 
     private static string Escape(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
+    private static string ShortHash(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value[..Math.Min(value.Length, 12)];
 }

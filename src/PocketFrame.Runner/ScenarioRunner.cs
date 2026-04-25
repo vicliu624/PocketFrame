@@ -9,18 +9,18 @@ public sealed class ScenarioRunner
 {
     private readonly ScenarioLoader scenarioLoader;
     private readonly ScenarioValidator scenarioValidator;
-    private readonly AutomationPipeClient automationClient;
+    private readonly IAutomationClient automationClient;
     private readonly MarkdownReportWriter reportWriter;
 
     public ScenarioRunner()
-        : this(new ScenarioLoader(), new ScenarioValidator(), new AutomationPipeClient(), new MarkdownReportWriter())
+        : this(new ScenarioLoader(), new ScenarioValidator(), new PipeAutomationClient(), new MarkdownReportWriter())
     {
     }
 
     public ScenarioRunner(
         ScenarioLoader scenarioLoader,
         ScenarioValidator scenarioValidator,
-        AutomationPipeClient automationClient,
+        IAutomationClient automationClient,
         MarkdownReportWriter reportWriter)
     {
         this.scenarioLoader = scenarioLoader;
@@ -54,41 +54,213 @@ public sealed class ScenarioRunner
         Directory.CreateDirectory(context.ScreenshotsDirectory);
         await scenarioLoader.SaveAsync(scenario, result.Artifacts.ScenarioPath, cancellationToken);
 
-        var state = await SendAsync<AutomationState>("get_state", null, cancellationToken: cancellationToken);
+        var state = await automationClient.SendAsync<AutomationState>("get_state", cancellationToken: cancellationToken);
         await WriteJsonAsync(result.Artifacts.StatePath, state, cancellationToken);
         if (!state.Connected)
         {
             result.Errors.Add("PocketFrame.App is not connected to VNC. Connect the app before running the scenario.");
             result.ExitCode = 2;
-            return await FinishReportAsync(result, scenario, state, [], [], options, cancellationToken);
+            return await FinishReportAsync(result, scenario, state, [], options, cancellationToken);
         }
 
         if (!state.DeviceId.Equals(scenario.DeviceId, StringComparison.OrdinalIgnoreCase))
         {
             result.Errors.Add($"Running app device '{state.DeviceId}' does not match scenario device '{scenario.DeviceId}'.");
             result.ExitCode = 2;
-            return await FinishReportAsync(result, scenario, state, [], [], options, cancellationToken);
+            return await FinishReportAsync(result, scenario, state, [], options, cancellationToken);
         }
 
-        await SendAsync<WaitStableFrameResult>(
+        await automationClient.SendAsync<WaitStableFrameResult>(
             "wait_stable_frame",
             new WaitStableFrameParams { QuietMs = options.StableQuietMs, TimeoutMs = options.StableTimeoutMs },
             timeoutMs: options.StableTimeoutMs + 1000,
             cancellationToken: cancellationToken);
 
-        var screen = await SendAsync<CaptureResult>("capture_screen", new CaptureParams { OutputPath = result.Artifacts.InitialScreenPath }, cancellationToken: cancellationToken);
-        var device = await SendAsync<CaptureResult>("capture_device", new CaptureParams { OutputPath = result.Artifacts.InitialDevicePath }, cancellationToken: cancellationToken);
-        var frame = await SendAsync<FrameHashResult>("frame_hash", null, cancellationToken: cancellationToken);
-        var trace = await SendAsync<ActionTraceResult>("action_trace", new ActionTraceParams { OutputPath = result.Artifacts.TracePath }, cancellationToken: cancellationToken);
-        var screenshots = new List<ReportScreenshot>
+        await CaptureInitialArtifactsAsync(result, context, cancellationToken);
+
+        foreach (var action in scenario.Actions)
         {
-            new() { Label = "Initial screen", Path = RelativeTo(result.Artifacts.InitialScreenPath, context.RunDirectory), FrameIndex = screen.FrameIndex, FrameHash = frame.FrameHash },
-            new() { Label = "Initial device", Path = RelativeTo(result.Artifacts.InitialDevicePath, context.RunDirectory), FrameIndex = device.FrameIndex, FrameHash = frame.FrameHash }
+            result.Actions.Add(await ExecuteActionAsync(action, result, context, cancellationToken));
+        }
+
+        result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, cancellationToken));
+        var trace = await automationClient.SendAsync<ActionTraceResult>("action_trace", new ActionTraceParams { OutputPath = result.Artifacts.TracePath }, cancellationToken: cancellationToken);
+        result.Success = result.Errors.Count == 0 && result.Actions.All(action => action.Ok) && result.Assertions.All(assertion => assertion.Passed);
+        result.ExitCode = result.Success ? 0 : 1;
+        return await FinishReportAsync(result, scenario, state, trace.Entries, options, cancellationToken);
+    }
+
+    private async Task CaptureInitialArtifactsAsync(RunResult result, RunContext context, CancellationToken cancellationToken)
+    {
+        var screen = await automationClient.SendAsync<CaptureResult>("capture_screen", new CaptureParams { OutputPath = result.Artifacts.InitialScreenPath }, cancellationToken: cancellationToken);
+        var device = await automationClient.SendAsync<CaptureResult>("capture_device", new CaptureParams { OutputPath = result.Artifacts.InitialDevicePath }, cancellationToken: cancellationToken);
+        var frame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+        result.Screenshots.Add(new ReportScreenshot
+        {
+            Label = "initial-screen",
+            Path = RelativeTo(result.Artifacts.InitialScreenPath, context.RunDirectory),
+            FrameIndex = screen.FrameIndex,
+            FrameHash = frame.FrameHash
+        });
+        result.Screenshots.Add(new ReportScreenshot
+        {
+            Label = "initial-device",
+            Path = RelativeTo(result.Artifacts.InitialDevicePath, context.RunDirectory),
+            FrameIndex = device.FrameIndex,
+            FrameHash = frame.FrameHash
+        });
+    }
+
+    private async Task<ScenarioActionResult> ExecuteActionAsync(ScenarioAction action, RunResult runResult, RunContext context, CancellationToken cancellationToken)
+    {
+        var id = ResolveActionId(action, runResult.Actions.Count);
+        var before = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+        var result = new ScenarioActionResult
+        {
+            Id = id,
+            Type = action.Type,
+            Label = string.IsNullOrWhiteSpace(action.Label) ? id : action.Label,
+            FrameIndexBefore = before.FrameIndex,
+            FrameHashBefore = before.FrameHash
         };
 
-        result.Success = true;
-        result.ExitCode = 0;
-        return await FinishReportAsync(result, scenario, state, trace.Entries, screenshots, options, cancellationToken);
+        try
+        {
+            await ExecuteActionBodyAsync(action, id, result, runResult, context, cancellationToken);
+            var after = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+            result.FrameIndexAfter = after.FrameIndex;
+            result.FrameHashAfter = after.FrameHash;
+            result.Ok = true;
+        }
+        catch (Exception ex)
+        {
+            result.Ok = false;
+            result.Error = ex.Message;
+            runResult.Errors.Add($"Action {id} failed: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    private async Task ExecuteActionBodyAsync(ScenarioAction action, string id, ScenarioActionResult result, RunResult runResult, RunContext context, CancellationToken cancellationToken)
+    {
+        switch (Normalize(action.Type))
+        {
+            case "waitstableframe":
+                await automationClient.SendAsync<WaitStableFrameResult>(
+                    "wait_stable_frame",
+                    new WaitStableFrameParams { QuietMs = action.QuietMs, TimeoutMs = action.TimeoutMs },
+                    timeoutMs: action.TimeoutMs + 1000,
+                    cancellationToken: cancellationToken);
+                break;
+            case "capturescreen":
+                await CaptureActionAsync("capture_screen", "screen", action, id, result, runResult, context, cancellationToken);
+                break;
+            case "capturedevice":
+                await CaptureActionAsync("capture_device", "device", action, id, result, runResult, context, cancellationToken);
+                break;
+            case "presskey":
+                await automationClient.SendAsync<object>("press_key", new KeyPressParams { Key = action.Key }, cancellationToken: cancellationToken);
+                break;
+            case "pressbutton":
+                await automationClient.SendAsync<object>("press_button", new ButtonPressParams { ButtonId = action.ButtonId }, cancellationToken: cancellationToken);
+                break;
+            case "clickscreen":
+                await automationClient.SendAsync<object>("click_screen", new ClickScreenParams { X = action.X, Y = action.Y, Button = action.Button }, cancellationToken: cancellationToken);
+                break;
+            case "typetext":
+                await automationClient.SendAsync<object>("type_text", new TextInputParams { Text = action.Text }, cancellationToken: cancellationToken);
+                break;
+            case "savetrace":
+                await automationClient.SendAsync<ActionTraceResult>("action_trace", new ActionTraceParams { OutputPath = runResult.Artifacts.TracePath }, cancellationToken: cancellationToken);
+                result.ArtifactPath = RelativeTo(runResult.Artifacts.TracePath, context.RunDirectory);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported scenario action type: {action.Type}");
+        }
+    }
+
+    private async Task CaptureActionAsync(
+        string method,
+        string suffix,
+        ScenarioAction action,
+        string id,
+        ScenarioActionResult actionResult,
+        RunResult runResult,
+        RunContext context,
+        CancellationToken cancellationToken)
+    {
+        var label = string.IsNullOrWhiteSpace(action.Label) ? id : action.Label;
+        var path = Path.Combine(context.ScreenshotsDirectory, $"{SafeFileName(label)}-{suffix}.png");
+        var capture = await automationClient.SendAsync<CaptureResult>(method, new CaptureParams { OutputPath = path }, cancellationToken: cancellationToken);
+        var frame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+        var relative = RelativeTo(path, context.RunDirectory);
+        actionResult.ArtifactPath = relative;
+        runResult.Screenshots.Add(new ReportScreenshot
+        {
+            Label = label,
+            Path = relative,
+            FrameIndex = capture.FrameIndex,
+            FrameHash = frame.FrameHash
+        });
+    }
+
+    private async Task<List<ScenarioAssertionResult>> EvaluateAssertionsAsync(IReadOnlyList<ScenarioAssertion> assertions, RunResult runResult, CancellationToken cancellationToken)
+    {
+        var results = new List<ScenarioAssertionResult>();
+        foreach (var assertion in assertions)
+        {
+            results.Add(await EvaluateAssertionAsync(assertion, runResult, results.Count, cancellationToken));
+        }
+
+        return results;
+    }
+
+    private async Task<ScenarioAssertionResult> EvaluateAssertionAsync(ScenarioAssertion assertion, RunResult runResult, int index, CancellationToken cancellationToken)
+    {
+        var result = new ScenarioAssertionResult
+        {
+            Id = string.IsNullOrWhiteSpace(assertion.Id) ? $"assertion-{index + 1:000}" : assertion.Id,
+            Type = assertion.Type
+        };
+
+        switch (Normalize(assertion.Type))
+        {
+            case "framechanged":
+                var action = runResult.Actions.FirstOrDefault(item => item.Id.Equals(assertion.AfterAction, StringComparison.OrdinalIgnoreCase));
+                result.Expected = "frame hash changes";
+                result.Actual = action is null ? "action not found" : $"{action.FrameHashBefore} -> {action.FrameHashAfter}";
+                result.Passed = action is not null &&
+                                !string.IsNullOrWhiteSpace(action.FrameHashBefore) &&
+                                !string.IsNullOrWhiteSpace(action.FrameHashAfter) &&
+                                !action.FrameHashBefore.Equals(action.FrameHashAfter, StringComparison.Ordinal);
+                break;
+            case "screenshotexists":
+                var screenshot = runResult.Screenshots.FirstOrDefault(item => item.Label.Equals(assertion.Label, StringComparison.OrdinalIgnoreCase));
+                result.Expected = $"screenshot label '{assertion.Label}' exists";
+                result.Actual = screenshot?.Path ?? "missing";
+                result.Passed = screenshot is not null && File.Exists(Path.Combine(runResult.Artifacts.RunDirectory, screenshot.Path));
+                break;
+            case "framehashnotempty":
+                var frame = await automationClient.SendAsync<FrameHashResult>("frame_hash", cancellationToken: cancellationToken);
+                result.Expected = "non-empty frame hash";
+                result.Actual = frame.FrameHash;
+                result.Passed = !string.IsNullOrWhiteSpace(frame.FrameHash);
+                break;
+            default:
+                result.Expected = "supported assertion type";
+                result.Actual = assertion.Type;
+                result.Passed = false;
+                break;
+        }
+
+        if (!result.Passed)
+        {
+            result.Message = $"Assertion {result.Id} failed.";
+            runResult.Errors.Add(result.Message);
+        }
+
+        return result;
     }
 
     private async Task<RunResult> FinishReportAsync(
@@ -96,7 +268,6 @@ public sealed class ScenarioRunner
         ScenarioDefinition scenario,
         AutomationState state,
         List<AutomationActionTraceEntry> trace,
-        List<ReportScreenshot> screenshots,
         ScenarioRunnerOptions options,
         CancellationToken cancellationToken)
     {
@@ -112,35 +283,14 @@ public sealed class ScenarioRunner
             Scenario = scenario,
             State = state,
             Trace = trace,
-            Screenshots = screenshots,
-            Errors = result.Errors
+            Screenshots = result.Screenshots,
+            Errors = result.Errors,
+            Success = result.Success,
+            ActionResults = result.Actions.Select(ToReportActionResult).ToList(),
+            AssertionResults = result.Assertions.Select(ToReportAssertionResult).ToList()
         };
         await reportWriter.WriteAsync(report, result.Artifacts.ReportPath, cancellationToken);
         return result;
-    }
-
-    private async Task<T> SendAsync<T>(string method, object? parameters, int timeoutMs = 10000, CancellationToken cancellationToken = default)
-    {
-        var response = await automationClient.SendAsync(method, parameters, timeoutMs, cancellationToken);
-        if (!response.Ok)
-        {
-            throw new InvalidOperationException($"{response.Error?.Code}: {response.Error?.Message}");
-        }
-
-        return ConvertResult<T>(response.Result);
-    }
-
-    private static T ConvertResult<T>(object? result)
-    {
-        if (result is JsonElement element)
-        {
-            return element.Deserialize<T>(AutomationJson.Options) ??
-                   throw new InvalidOperationException($"Unable to deserialize automation result as {typeof(T).Name}.");
-        }
-
-        var json = JsonSerializer.Serialize(result, AutomationJson.Options);
-        return JsonSerializer.Deserialize<T>(json, AutomationJson.Options) ??
-               throw new InvalidOperationException($"Unable to deserialize automation result as {typeof(T).Name}.");
     }
 
     private static RunContext CreateContext(ScenarioDefinition scenario, string sourceScenarioPath)
@@ -169,4 +319,39 @@ public sealed class ScenarioRunner
     {
         return Path.GetRelativePath(relativeTo, path).Replace('\\', '/');
     }
+
+    private static string ResolveActionId(ScenarioAction action, int index) =>
+        string.IsNullOrWhiteSpace(action.Id) ? $"action-{index + 1:000}" : action.Id;
+
+    private static string Normalize(string value) => value.Trim().Replace("_", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+
+    private static string SafeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Join('-', value.Split(invalid, StringSplitOptions.RemoveEmptyEntries)).Trim();
+    }
+
+    private static ReportActionResult ToReportActionResult(ScenarioActionResult action) => new()
+    {
+        Id = action.Id,
+        Type = action.Type,
+        Label = action.Label,
+        Ok = action.Ok,
+        Error = action.Error,
+        FrameIndexBefore = action.FrameIndexBefore,
+        FrameIndexAfter = action.FrameIndexAfter,
+        FrameHashBefore = action.FrameHashBefore,
+        FrameHashAfter = action.FrameHashAfter,
+        ArtifactPath = action.ArtifactPath
+    };
+
+    private static ReportAssertionResult ToReportAssertionResult(ScenarioAssertionResult assertion) => new()
+    {
+        Id = assertion.Id,
+        Type = assertion.Type,
+        Passed = assertion.Passed,
+        Expected = assertion.Expected,
+        Actual = assertion.Actual,
+        Message = assertion.Message
+    };
 }

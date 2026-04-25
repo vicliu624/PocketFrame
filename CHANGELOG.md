@@ -4,6 +4,22 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.4.0] - 2026-04-25
+
+### Added
+
+- Added scenario `actions` for `waitStableFrame`, `captureScreen`, `captureDevice`, `pressKey`, `pressButton`, `clickScreen`, `typeText`, and `saveTrace`.
+- Added scenario `assertions` for `frameChanged`, `screenshotExists`, and `frameHashNotEmpty`.
+- Added scenario action and assertion results to `ScenarioRunner`.
+- Added report summary, action result table, and assertion result table.
+- Added `IAutomationClient` and `PipeAutomationClient` so runner tests can use fake automation clients.
+- Added `PocketFrame.Runner.Tests` for runner success, not-connected, and device-mismatch paths.
+
+### Changed
+
+- Updated the starter smoke scenario to execute actions and assertions.
+- Updated `scenario run` to return assertion-based success or failure.
+
 ## [0.3.0] - 2026-04-25
 
 ### Added

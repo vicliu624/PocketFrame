@@ -48,6 +48,8 @@ Run a scenario against the currently running app:
 dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario run scenarios/cardputer-zero-openbox-smoke.json --report
 ```
 
+`scenario run` returns a non-zero exit code when an action fails or an assertion fails.
+
 Capture through the running app:
 
 ```bash

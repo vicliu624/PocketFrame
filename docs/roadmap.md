@@ -77,6 +77,9 @@
 
 ## Phase 11: AI Debugging Workflows
 
+- Add declarative scenario actions.
+- Add basic scenario assertions.
+- Add assertion-based report summaries.
 - Add screenshot baseline comparison.
 - Generate debugging reports with screenshots, commands, frame indexes, and module state.
 

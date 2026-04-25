@@ -12,5 +12,49 @@
   },
   "run": {
     "workingDir": "runs/cardputer-zero-openbox"
-  }
+  },
+  "actions": [
+    {
+      "id": "wait-initial",
+      "type": "waitStableFrame",
+      "quietMs": 300,
+      "timeoutMs": 5000
+    },
+    {
+      "id": "capture-initial",
+      "type": "captureScreen",
+      "label": "desktop-initial"
+    },
+    {
+      "id": "type-ls",
+      "type": "typeText",
+      "text": "ls\n"
+    },
+    {
+      "id": "wait-after-ls",
+      "type": "waitStableFrame",
+      "quietMs": 300,
+      "timeoutMs": 5000
+    },
+    {
+      "id": "capture-after-ls",
+      "type": "captureScreen",
+      "label": "after-ls"
+    },
+    {
+      "id": "save-trace",
+      "type": "saveTrace"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "after-ls-screenshot-exists",
+      "type": "screenshotExists",
+      "label": "after-ls"
+    },
+    {
+      "id": "frame-hash-present",
+      "type": "frameHashNotEmpty"
+    }
+  ]
 }

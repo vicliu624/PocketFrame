@@ -53,7 +53,48 @@ scenarios/cardputer-zero-openbox-smoke.json
 
 ## Boundary
 
-Scenarios are not full test scripts yet. They do not encode actions, assertions, or external modules in this version.
+Scenarios are declarative run descriptions. They are not a scripting language and do not encode loops, branching, or arbitrary code.
+
+## Actions
+
+Supported first-version actions:
+
+- `waitStableFrame`
+- `captureScreen`
+- `captureDevice`
+- `pressKey`
+- `pressButton`
+- `clickScreen`
+- `typeText`
+- `saveTrace`
+
+Example:
+
+```json
+{
+  "id": "type-ls",
+  "type": "typeText",
+  "text": "ls\n"
+}
+```
+
+## Assertions
+
+Supported first-version assertions:
+
+- `frameChanged`
+- `screenshotExists`
+- `frameHashNotEmpty`
+
+Example:
+
+```json
+{
+  "id": "after-ls-screenshot-exists",
+  "type": "screenshotExists",
+  "label": "after-ls"
+}
+```
 
 ## Running
 

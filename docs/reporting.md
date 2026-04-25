@@ -22,6 +22,8 @@ A report should record:
 - selected device;
 - VNC session target;
 - each automation action;
+- each scenario action result;
+- each scenario assertion result;
 - frame index before and after each action;
 - frame hash before and after each action;
 - screenshots;
