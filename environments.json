@@ -1,0 +1,21 @@
+{
+  "profiles": [
+    {
+      "id": "wsl-ubuntu-24.04",
+      "name": "WSL Ubuntu 24.04",
+      "type": "wsl",
+      "distro": "Ubuntu-24.04",
+      "workingDirectory": "~",
+      "shell": "bash",
+      "commandTimeoutMs": 30000,
+      "vnc": {
+        "display": ":10",
+        "host": "127.0.0.1",
+        "port": 5910,
+        "geometry": "320x170",
+        "depth": 24,
+        "startupCommand": "openbox & xterm"
+      }
+    }
+  ]
+}

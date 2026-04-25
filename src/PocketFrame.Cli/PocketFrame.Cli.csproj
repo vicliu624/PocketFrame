@@ -4,6 +4,7 @@
     <ProjectReference Include="..\PocketFrame.Automation\PocketFrame.Automation.csproj" />
     <ProjectReference Include="..\PocketFrame.Scenarios\PocketFrame.Scenarios.csproj" />
     <ProjectReference Include="..\PocketFrame.DeviceProfiles\PocketFrame.DeviceProfiles.csproj" />
+    <ProjectReference Include="..\PocketFrame.Environments\PocketFrame.Environments.csproj" />
     <ProjectReference Include="..\PocketFrame.Runner\PocketFrame.Runner.csproj" />
   </ItemGroup>
 

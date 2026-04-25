@@ -1,4 +1,5 @@
 using PocketFrame.Automation;
+using PocketFrame.Environments;
 using PocketFrame.Scenarios;
 
 namespace PocketFrame.Reports;
@@ -11,6 +12,7 @@ public sealed class AutomationRunReport
     public AutomationState? State { get; set; }
     public bool Success { get; set; }
     public List<AutomationActionTraceEntry> Trace { get; set; } = [];
+    public List<EnvironmentCommandResult> EnvironmentCommands { get; set; } = [];
     public List<ReportActionResult> ActionResults { get; set; } = [];
     public List<ReportAssertionResult> AssertionResults { get; set; } = [];
     public List<ReportScreenshot> Screenshots { get; set; } = [];

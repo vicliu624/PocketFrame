@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PocketFrame.Automation;
+using PocketFrame.Environments;
 using PocketFrame.Reports;
 using PocketFrame.Runner;
 using PocketFrame.Scenarios;
@@ -222,6 +223,102 @@ public sealed class ScenarioRunnerTests
         Assert.True(client.Methods.IndexOf("connect_vnc") < client.Methods.IndexOf("get_state"));
     }
 
+    [Fact]
+    public async Task RunCanPrepareTargetEnvironmentAndRecordCommands()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "environment-smoke",
+            DeviceId = "cardputer-zero",
+            Connection = new ScenarioConnection { Host = "127.0.0.1", Port = 5910 },
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Environment = new ScenarioEnvironment
+            {
+                ProfileId = "test-env",
+                Prepare = true,
+                RestartVnc = true,
+                VncDisplay = ":10",
+                VncGeometry = "320x170",
+                VncDepth = 24,
+                PreCommands =
+                [
+                    new ScenarioEnvironmentCommand { Id = "echo", Command = "echo ready" }
+                ]
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        Assert.Contains(client.Methods, method => method == "environment_get_state");
+        Assert.Contains(client.Methods, method => method == "environment_exec");
+        Assert.Contains(client.Methods, method => method == "environment_restart_vnc");
+        Assert.Equal(2, result.EnvironmentCommands.Count);
+        Assert.True(File.Exists(result.Artifacts.EnvironmentStatePath));
+    }
+
+    [Fact]
+    public async Task RunPassesPressButtonHoldDurationToAutomation()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "button-hold",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Actions =
+            {
+                new ScenarioAction { Id = "hold-next", Type = "pressButton", ButtonId = "next-home", DurationMs = 800 }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        var request = Assert.Single(client.Requests, request => request.Method == "press_button");
+        var parameters = Assert.IsType<ButtonPressParams>(request.Parameters);
+        Assert.Equal("next-home", parameters.ButtonId);
+        Assert.Equal(800, parameters.DurationMs);
+        Assert.True(request.TimeoutMs >= 5000);
+    }
+
+    [Fact]
+    public async Task RunExecutesPlainAndFrameChangeWaitActions()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "wait-actions",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Actions =
+            {
+                new ScenarioAction { Id = "plain-wait", Type = "wait", DurationMs = 1200 },
+                new ScenarioAction { Id = "frame-change", Type = "waitFrameChange", AfterFrame = 2, TimeoutMs = 3000 }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        var waitRequest = Assert.Single(client.Requests, request => request.Method == "wait");
+        Assert.Equal(1200, Assert.IsType<WaitParams>(waitRequest.Parameters).DurationMs);
+        var frameChangeRequest = Assert.Single(client.Requests, request => request.Method == "wait_frame_change");
+        var frameChangeParams = Assert.IsType<WaitFrameChangeParams>(frameChangeRequest.Parameters);
+        Assert.Equal(2, frameChangeParams.AfterFrame);
+        Assert.Equal(3000, frameChangeParams.TimeoutMs);
+    }
+
     private static ScenarioRunner CreateRunner(IAutomationClient client) =>
         new(new ScenarioLoader(), new ScenarioValidator(), client, new MarkdownReportWriter());
 
@@ -246,15 +343,23 @@ public sealed class ScenarioRunnerTests
 
         public List<string> Methods { get; } = [];
 
+        public List<(string Method, object? Parameters, int TimeoutMs)> Requests { get; } = [];
+
         public async Task<T> SendAsync<T>(string method, object? parameters = null, int timeoutMs = 10000, CancellationToken cancellationToken = default)
         {
             Methods.Add(method);
+            Requests.Add((method, parameters, timeoutMs));
             object result = method switch
             {
                 "get_state" => state,
                 "frame_hash" => new FrameHashResult { FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}", Width = 320, Height = 170 },
+                "wait" => new WaitResult { WaitedMs = parameters is WaitParams waitParams ? waitParams.DurationMs : 0, FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}" },
+                "wait_frame_change" => new WaitFrameResult { Changed = true, PreviousFrameIndex = frameIndex, CurrentFrameIndex = ++frameIndex },
                 "wait_stable_frame" => new WaitStableFrameResult { Stable = true, FrameIndex = frameIndex, FrameHash = $"hash-{frameIndex}" },
                 "select_device" or "set_scale" or "connect_vnc" or "disconnect_vnc" => new AutomationOperationResult { Ok = true, Message = method },
+                "environment_get_state" => new EnvironmentStateResult { ProfileId = "test-env", Available = true },
+                "environment_exec" => new EnvironmentCommandResult { ProfileId = "test-env", Command = "echo ready", ExitCode = 0 },
+                "environment_restart_vnc" or "environment_start_vnc" or "environment_stop_vnc" => new EnvironmentOperationResult { Ok = true, Message = method, Command = new EnvironmentCommandResult { ProfileId = "test-env", Command = method, ExitCode = 0 } },
                 "capture_screen" => await CaptureAsync(parameters),
                 "capture_device" => await CaptureAsync(parameters),
                 "type_text" or "press_key" or "press_button" or "click_screen" => Tap(),

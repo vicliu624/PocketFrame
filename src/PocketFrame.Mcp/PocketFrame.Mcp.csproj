@@ -8,5 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PocketFrame.Automation\PocketFrame.Automation.csproj" />
+    <ProjectReference Include="..\PocketFrame.Environments\PocketFrame.Environments.csproj" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PocketFrame.Automation;
+using PocketFrame.Environments;
 using PocketFrame.Reports;
 using PocketFrame.Scenarios;
 
@@ -50,6 +51,7 @@ public sealed class ScenarioRunner
         result.Artifacts.SourceScenarioPath = context.SourceScenarioPath;
         result.Artifacts.ScenarioPath = Path.Combine(context.RunDirectory, "scenario.json");
         result.Artifacts.StatePath = Path.Combine(context.RunDirectory, "state.json");
+        result.Artifacts.EnvironmentStatePath = Path.Combine(context.RunDirectory, "environment-state.json");
         result.Artifacts.TracePath = Path.Combine(context.RunDirectory, "action-trace.json");
         result.Artifacts.InitialScreenPath = Path.Combine(context.ScreenshotsDirectory, "initial-screen.png");
         result.Artifacts.InitialDevicePath = Path.Combine(context.ScreenshotsDirectory, "initial-device.png");
@@ -60,9 +62,14 @@ public sealed class ScenarioRunner
         Directory.CreateDirectory(context.ScreenshotsDirectory);
         await scenarioLoader.SaveAsync(scenario, result.Artifacts.ScenarioPath, cancellationToken);
 
+        if (options.PrepareEnvironment || scenario.Environment.Prepare)
+        {
+            await PrepareTargetEnvironmentAsync(scenario, result, cancellationToken);
+        }
+
         if (options.PrepareEnvironment)
         {
-            await PrepareEnvironmentAsync(scenario, options, cancellationToken);
+            await PrepareAppAsync(scenario, options, cancellationToken);
         }
 
         var state = await automationClient.SendAsync<AutomationState>("get_state", cancellationToken: cancellationToken);
@@ -93,6 +100,8 @@ public sealed class ScenarioRunner
         {
             result.Actions.Add(await ExecuteActionAsync(action, result, context, cancellationToken));
         }
+
+        await ExecuteEnvironmentCommandsAsync(scenario.Environment.PostCommands, scenario.Environment, result, cancellationToken);
 
         result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, options, cancellationToken));
         if (scenario.Run.CaptureOnFailure && HasFailure(result))
@@ -127,7 +136,80 @@ public sealed class ScenarioRunner
         });
     }
 
-    private async Task PrepareEnvironmentAsync(ScenarioDefinition scenario, ScenarioRunnerOptions options, CancellationToken cancellationToken)
+    private async Task PrepareTargetEnvironmentAsync(ScenarioDefinition scenario, RunResult result, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(scenario.Environment.ProfileId))
+        {
+            return;
+        }
+
+        var state = await automationClient.SendAsync<EnvironmentStateResult>(
+            "environment_get_state",
+            new EnvironmentCommandParams { ProfileId = scenario.Environment.ProfileId },
+            cancellationToken: cancellationToken);
+        await WriteJsonAsync(result.Artifacts.EnvironmentStatePath, state, cancellationToken);
+
+        await ExecuteEnvironmentCommandsAsync(scenario.Environment.PreCommands, scenario.Environment, result, cancellationToken);
+        if (scenario.Environment.RestartVnc)
+        {
+            var restart = await automationClient.SendAsync<EnvironmentOperationResult>(
+                "environment_restart_vnc",
+                ToEnvironmentVncParams(scenario.Environment),
+                timeoutMs: 61000,
+                cancellationToken: cancellationToken);
+            AddEnvironmentOperation(result, restart);
+        }
+        else if (scenario.Environment.StartVnc)
+        {
+            var start = await automationClient.SendAsync<EnvironmentOperationResult>(
+                "environment_start_vnc",
+                ToEnvironmentVncParams(scenario.Environment),
+                timeoutMs: 31000,
+                cancellationToken: cancellationToken);
+            AddEnvironmentOperation(result, start);
+        }
+    }
+
+    private async Task ExecuteEnvironmentCommandsAsync(
+        IReadOnlyList<ScenarioEnvironmentCommand> commands,
+        ScenarioEnvironment environment,
+        RunResult result,
+        CancellationToken cancellationToken)
+    {
+        foreach (var command in commands)
+        {
+            try
+            {
+                var commandResult = await automationClient.SendAsync<EnvironmentCommandResult>(
+                    "environment_exec",
+                    new EnvironmentCommandParams
+                    {
+                        ProfileId = environment.ProfileId,
+                        Command = command.Command,
+                        WorkingDirectory = string.IsNullOrWhiteSpace(command.WorkingDirectory) ? environment.WorkingDirectory : command.WorkingDirectory,
+                        TimeoutMs = command.TimeoutMs
+                    },
+                    timeoutMs: (command.TimeoutMs <= 0 ? 30000 : command.TimeoutMs) + 1000,
+                    cancellationToken: cancellationToken);
+                result.EnvironmentCommands.Add(commandResult);
+                if (commandResult.ExitCode != 0 && !command.ContinueOnFailure)
+                {
+                    result.Errors.Add($"Environment command failed: {command.Id} exit={commandResult.ExitCode}");
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Environment command failed: {command.Id} {ex.Message}");
+                if (!command.ContinueOnFailure)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task PrepareAppAsync(ScenarioDefinition scenario, ScenarioRunnerOptions options, CancellationToken cancellationToken)
     {
         await automationClient.SendAsync<AutomationOperationResult>(
             "select_device",
@@ -149,6 +231,28 @@ public sealed class ScenarioRunner
             },
             timeoutMs: options.StableTimeoutMs + 30000,
             cancellationToken: cancellationToken);
+    }
+
+    private static EnvironmentVncParams ToEnvironmentVncParams(ScenarioEnvironment environment) => new()
+    {
+        ProfileId = environment.ProfileId,
+        Display = environment.VncDisplay,
+        Geometry = environment.VncGeometry,
+        Depth = environment.VncDepth,
+        TimeoutMs = 30000
+    };
+
+    private static void AddEnvironmentOperation(RunResult result, EnvironmentOperationResult operation)
+    {
+        if (operation.Command is not null)
+        {
+            result.EnvironmentCommands.Add(operation.Command);
+        }
+
+        if (!operation.Ok)
+        {
+            result.Errors.Add(operation.Message);
+        }
     }
 
     private async Task<ScenarioActionResult> ExecuteActionAsync(ScenarioAction action, RunResult runResult, RunContext context, CancellationToken cancellationToken)
@@ -189,6 +293,21 @@ public sealed class ScenarioRunner
     {
         switch (Normalize(action.Type))
         {
+            case "wait":
+            case "delay":
+                await automationClient.SendAsync<WaitResult>(
+                    "wait",
+                    new WaitParams { DurationMs = action.DurationMs },
+                    timeoutMs: Math.Max(5000, action.DurationMs + 1000),
+                    cancellationToken: cancellationToken);
+                break;
+            case "waitframechange":
+                await automationClient.SendAsync<WaitFrameResult>(
+                    "wait_frame_change",
+                    new WaitFrameChangeParams { AfterFrame = action.AfterFrame, TimeoutMs = action.TimeoutMs },
+                    timeoutMs: action.TimeoutMs + 1000,
+                    cancellationToken: cancellationToken);
+                break;
             case "waitstableframe":
                 await automationClient.SendAsync<WaitStableFrameResult>(
                     "wait_stable_frame",
@@ -206,7 +325,11 @@ public sealed class ScenarioRunner
                 await automationClient.SendAsync<object>("press_key", new KeyPressParams { Key = action.Key }, cancellationToken: cancellationToken);
                 break;
             case "pressbutton":
-                await automationClient.SendAsync<object>("press_button", new ButtonPressParams { ButtonId = action.ButtonId }, cancellationToken: cancellationToken);
+                await automationClient.SendAsync<object>(
+                    "press_button",
+                    new ButtonPressParams { ButtonId = action.ButtonId, DurationMs = action.DurationMs },
+                    timeoutMs: Math.Max(5000, action.DurationMs + 1000),
+                    cancellationToken: cancellationToken);
                 break;
             case "clickscreen":
                 await automationClient.SendAsync<object>("click_screen", new ClickScreenParams { X = action.X, Y = action.Y, Button = action.Button }, cancellationToken: cancellationToken);
@@ -487,6 +610,8 @@ public sealed class ScenarioRunner
             Success = result.Success,
             ActionResults = result.Actions.Select(ToReportActionResult).ToList(),
             AssertionResults = result.Assertions.Select(ToReportAssertionResult).ToList()
+            ,
+            EnvironmentCommands = result.EnvironmentCommands
         };
         await reportWriter.WriteAsync(report, result.Artifacts.ReportPath, cancellationToken);
         return result;

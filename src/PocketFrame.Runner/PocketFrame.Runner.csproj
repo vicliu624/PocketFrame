@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PocketFrame.Automation\PocketFrame.Automation.csproj" />
+    <ProjectReference Include="..\PocketFrame.Environments\PocketFrame.Environments.csproj" />
     <ProjectReference Include="..\PocketFrame.Scenarios\PocketFrame.Scenarios.csproj" />
     <ProjectReference Include="..\PocketFrame.Reports\PocketFrame.Reports.csproj" />
   </ItemGroup>

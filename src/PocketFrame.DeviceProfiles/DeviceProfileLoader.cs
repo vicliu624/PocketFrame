@@ -79,6 +79,8 @@ public sealed class DeviceProfileLoader
         public JsonShell Shell { get; set; } = new();
         public string BackgroundColor { get; set; } = "#121722";
         public List<JsonButton> Buttons { get; set; } = [];
+        public JsonKeyboard Keyboard { get; set; } = new();
+        public List<JsonShellAnnotation> ShellAnnotations { get; set; } = [];
 
         public DeviceProfile ToDeviceProfile(string profileDirectory) => new()
         {
@@ -102,9 +104,58 @@ public sealed class DeviceProfileLoader
                 Width = button.Width,
                 Height = button.Height,
                 KeyCode = button.Key,
+                LongPressKeyCode = button.LongPressKey,
                 BlueKeyCode = button.BlueKey,
                 OrangeKeyCode = button.OrangeKey,
+                SymKeyCode = button.SymKey,
+                FnKeyCode = button.FnKey,
+                ShiftKeyCode = button.ShiftKey,
+                Role = button.Role,
                 Description = button.Description
+            })),
+            Keyboard = new KeyboardProfile
+            {
+                Layers = new(Keyboard.Layers),
+                Keys = new(Keyboard.Keys.Select(key => new KeyProfile
+                {
+                    Id = key.Id,
+                    X = key.X,
+                    Y = key.Y,
+                    Width = key.Width,
+                    Height = key.Height,
+                    Label = key.Label,
+                    KeyCode = key.Key,
+                    FnKeyCode = key.FnKey,
+                    SymKeyCode = key.SymKey,
+                    ShiftKeyCode = key.ShiftKey,
+                    Role = key.Role,
+                    Fill = key.Fill,
+                    Legends = new(key.Legends.Select(legend => new KeyLegendProfile
+                    {
+                        Text = legend.Text,
+                        Layer = legend.Layer,
+                        Color = legend.Color,
+                        Position = legend.Position,
+                        FontSize = legend.FontSize <= 0 ? 14 : legend.FontSize,
+                        Weight = legend.Weight
+                    }))
+                }))
+            },
+            ShellAnnotations = new(ShellAnnotations.Select(annotation => new ShellAnnotationProfile
+            {
+                Id = annotation.Id,
+                Text = annotation.Text,
+                X = annotation.X,
+                Y = annotation.Y,
+                Width = annotation.Width,
+                Height = annotation.Height,
+                Kind = annotation.Kind,
+                Fill = annotation.Fill,
+                Stroke = annotation.Stroke,
+                Foreground = annotation.Foreground,
+                FontSize = annotation.FontSize <= 0 ? 14 : annotation.FontSize,
+                Weight = annotation.Weight,
+                Radius = annotation.Radius
             }))
         };
     }
@@ -134,8 +185,63 @@ public sealed class DeviceProfileLoader
         public double Width { get; set; }
         public double Height { get; set; }
         public string Key { get; set; } = string.Empty;
+        public string LongPressKey { get; set; } = string.Empty;
         public string BlueKey { get; set; } = string.Empty;
         public string OrangeKey { get; set; } = string.Empty;
+        public string SymKey { get; set; } = string.Empty;
+        public string FnKey { get; set; } = string.Empty;
+        public string ShiftKey { get; set; } = string.Empty;
+        public string Role { get; set; } = "button";
         public string Description { get; set; } = string.Empty;
+    }
+
+    private sealed class JsonKeyboard
+    {
+        public List<string> Layers { get; set; } = [];
+        public List<JsonKey> Keys { get; set; } = [];
+    }
+
+    private sealed class JsonKey
+    {
+        public string Id { get; set; } = string.Empty;
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public string Label { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string FnKey { get; set; } = string.Empty;
+        public string SymKey { get; set; } = string.Empty;
+        public string ShiftKey { get; set; } = string.Empty;
+        public string Role { get; set; } = "key";
+        public string Fill { get; set; } = string.Empty;
+        public List<JsonKeyLegend> Legends { get; set; } = [];
+    }
+
+    private sealed class JsonKeyLegend
+    {
+        public string Text { get; set; } = string.Empty;
+        public string Layer { get; set; } = string.Empty;
+        public string Color { get; set; } = "#222222";
+        public string Position { get; set; } = "topRight";
+        public double FontSize { get; set; } = 14;
+        public string Weight { get; set; } = "Bold";
+    }
+
+    private sealed class JsonShellAnnotation
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public string Kind { get; set; } = "label";
+        public string Fill { get; set; } = "#ffffff";
+        public string Stroke { get; set; } = string.Empty;
+        public string Foreground { get; set; } = "#222222";
+        public double FontSize { get; set; } = 14;
+        public string Weight { get; set; } = "Bold";
+        public double Radius { get; set; }
     }
 }

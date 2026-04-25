@@ -1,27 +1,1229 @@
-﻿{
+{
   "id": "cardputer-zero",
   "name": "Cardputer Zero",
-  "backgroundColor": "#121722",
+  "backgroundColor": "#f8f8f8",
   "screen": {
     "width": 320,
     "height": 170,
-    "x": 197,
-    "y": 43,
+    "x": 160.75,
+    "y": 23.29,
     "scale": 1
   },
   "shell": {
-    "width": 800,
-    "height": 520,
+    "width": 638.5,
+    "height": 409.39,
     "asset": "shell.svg"
   },
   "buttons": [
-    { "id": "up", "label": "Up", "x": 74, "y": 240, "width": 34, "height": 28, "key": "Up", "description": "Directional up" },
-    { "id": "down", "label": "Down", "x": 74, "y": 300, "width": 34, "height": 28, "key": "Down", "description": "Directional down" },
-    { "id": "left", "label": "Left", "x": 36, "y": 270, "width": 34, "height": 28, "key": "Left", "description": "Directional left" },
-    { "id": "right", "label": "Right", "x": 112, "y": 270, "width": 34, "height": 28, "key": "Right", "description": "Directional right" },
-    { "id": "ok", "label": "OK", "x": 356, "y": 262, "width": 44, "height": 28, "key": "Enter", "description": "Confirm" },
-    { "id": "back", "label": "Back", "x": 408, "y": 262, "width": 48, "height": 28, "key": "Escape", "description": "Back or cancel" },
-    { "id": "menu", "label": "Menu", "x": 356, "y": 302, "width": 48, "height": 24, "key": "F1", "description": "Menu" },
-    { "id": "home", "label": "Home", "x": 412, "y": 302, "width": 44, "height": 24, "key": "Home", "description": "Home" }
-  ]
+    {
+      "id": "esc",
+      "label": "ESC",
+      "x": 24.04,
+      "y": 169.01,
+      "width": 28.54,
+      "height": 26.29,
+      "key": "Escape",
+      "description": "Left shell ESC"
+    },
+    {
+      "id": "home",
+      "label": "HOME",
+      "x": 52.58,
+      "y": 169.01,
+      "width": 34.55,
+      "height": 26.29,
+      "key": "Home",
+      "description": "Left shell Home"
+    },
+    {
+      "id": "talk",
+      "label": "TALK",
+      "x": 33.8,
+      "y": 189.3,
+      "width": 33.8,
+      "height": 17.28,
+      "key": "Tab",
+      "longPressKey": "Tab",
+      "description": "Physical hold-to-talk button"
+    },
+    {
+      "id": "next-home",
+      "label": "NEXT/HOME",
+      "x": 569.39,
+      "y": 206.57,
+      "width": 35.31,
+      "height": 17.28,
+      "key": "Right",
+      "longPressKey": "Home",
+      "description": "Short press is Right/NEXT; long press returns Home"
+    },
+    {
+      "id": "power-reboot",
+      "label": "POWER",
+      "x": 529.58,
+      "y": 37.56,
+      "width": 42.07,
+      "height": 27.04,
+      "key": "Reboot",
+      "description": "Power slider reboot action; sends Ctrl+Alt+Delete to the VNC session"
+    }
+  ],
+  "shellAnnotations": [],
+  "keyboard": {
+    "layers": [
+      "normal",
+      "fn",
+      "sym",
+      "shift",
+      "ctrl",
+      "alt"
+    ],
+    "keys": [
+      {
+        "id": "key-1",
+        "label": "1",
+        "key": "1",
+        "x": 22.54,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F1",
+        "symKey": "!",
+        "shiftKey": "!",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F1",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "!",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-2",
+        "label": "2",
+        "key": "2",
+        "x": 76.24,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F2",
+        "symKey": "@",
+        "shiftKey": "@",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F2",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "@",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-3",
+        "label": "3",
+        "key": "3",
+        "x": 129.95,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F3",
+        "symKey": "#",
+        "shiftKey": "#",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F3",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "#",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-4",
+        "label": "4",
+        "key": "4",
+        "x": 183.66,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F4",
+        "symKey": "$",
+        "shiftKey": "$",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F4",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "$",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-5",
+        "label": "5",
+        "key": "5",
+        "x": 237.37,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F5",
+        "symKey": "%",
+        "shiftKey": "%",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F5",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "%",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-6",
+        "label": "6",
+        "key": "6",
+        "x": 291.08,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F6",
+        "symKey": "^",
+        "shiftKey": "^",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F6",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "^",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-7",
+        "label": "7",
+        "key": "7",
+        "x": 344.79,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F7",
+        "symKey": "&",
+        "shiftKey": "&",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F7",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "&",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-8",
+        "label": "8",
+        "key": "8",
+        "x": 398.5,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F8",
+        "symKey": "*",
+        "shiftKey": "*",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F8",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "*",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-9",
+        "label": "9",
+        "key": "9",
+        "x": 452.21,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F9",
+        "symKey": "(",
+        "shiftKey": "(",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F9",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "(",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-0",
+        "label": "0",
+        "key": "0",
+        "x": 505.92,
+        "y": 226.85,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F10",
+        "symKey": ")",
+        "shiftKey": ")",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F10",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": ")",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-del",
+        "label": "\u2190",
+        "key": "Backspace",
+        "x": 559.62,
+        "y": 226.85,
+        "width": 43.57,
+        "height": 33.05,
+        "fnKey": "Delete",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "del",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-sym",
+        "label": "SYM",
+        "key": "Sym",
+        "x": 22.54,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "layer",
+        "fill": "#2f6fa5",
+        "legends": []
+      },
+      {
+        "id": "key-q",
+        "label": "Q",
+        "key": "Q",
+        "x": 76.24,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "~",
+        "shiftKey": "Q",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "~",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-w",
+        "label": "W",
+        "key": "W",
+        "x": 129.95,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "`",
+        "shiftKey": "W",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "`",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-e",
+        "label": "E",
+        "key": "E",
+        "x": 183.66,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "+",
+        "shiftKey": "E",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "+",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-r",
+        "label": "R",
+        "key": "R",
+        "x": 237.37,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "-",
+        "shiftKey": "R",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "-",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-t",
+        "label": "T",
+        "key": "T",
+        "x": 291.08,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "/",
+        "shiftKey": "T",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "/",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-y",
+        "label": "Y",
+        "key": "Y",
+        "x": 344.79,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "\\",
+        "shiftKey": "Y",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\\",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-u",
+        "label": "U",
+        "key": "U",
+        "x": 398.5,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "{",
+        "shiftKey": "U",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "{",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-i",
+        "label": "I",
+        "key": "I",
+        "x": 452.21,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "}",
+        "shiftKey": "I",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "}",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-o",
+        "label": "O",
+        "key": "O",
+        "x": 505.92,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F11",
+        "symKey": "[",
+        "shiftKey": "O",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F11",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          },
+          {
+            "text": "[",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-p",
+        "label": "P",
+        "key": "P",
+        "x": 559.62,
+        "y": 264.41,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "F12",
+        "symKey": "]",
+        "shiftKey": "P",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "F12",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          },
+          {
+            "text": "]",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-aa",
+        "label": "Aa",
+        "key": "Aa",
+        "x": 22.54,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "layer",
+        "fill": "#b000ad",
+        "legends": []
+      },
+      {
+        "id": "key-a",
+        "label": "A",
+        "key": "A",
+        "x": 76.24,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": ",",
+        "shiftKey": "A",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\u2022",
+            "layer": "sym",
+            "color": "#222222",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          },
+          {
+            "text": "\u2022",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-s",
+        "label": "S",
+        "key": "S",
+        "x": 129.95,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "S",
+        "role": "key",
+        "fill": "",
+        "legends": []
+      },
+      {
+        "id": "key-d",
+        "label": "D",
+        "key": "D",
+        "x": 183.66,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Up",
+        "symKey": "|",
+        "shiftKey": "D",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "|",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          },
+          {
+            "text": "\u25b2",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "bottomRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-f",
+        "label": "F",
+        "key": "F",
+        "x": 237.37,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "F",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\u25b2",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-g",
+        "label": "G",
+        "key": "G",
+        "x": 291.08,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "=",
+        "shiftKey": "G",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "=",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-h",
+        "label": "H",
+        "key": "H",
+        "x": 344.79,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Home",
+        "symKey": ":",
+        "shiftKey": "H",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "Home",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "bottomLeft",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          },
+          {
+            "text": ":",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-j",
+        "label": "J",
+        "key": "J",
+        "x": 398.5,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": ";",
+        "shiftKey": "J",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": ";",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-k",
+        "label": "K",
+        "key": "K",
+        "x": 452.21,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "PageUp",
+        "symKey": "_",
+        "shiftKey": "K",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "Pg\nUp",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 7.51,
+            "weight": "Bold"
+          },
+          {
+            "text": "_",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "bottomRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-l",
+        "label": "L",
+        "key": "L",
+        "x": 505.92,
+        "y": 301.97,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "PageDown",
+        "symKey": "?",
+        "shiftKey": "L",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "Pg\nDn",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 7.51,
+            "weight": "Bold"
+          },
+          {
+            "text": "?",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-ok",
+        "label": "\u21b5",
+        "key": "Enter",
+        "x": 559.62,
+        "y": 301.97,
+        "width": 43.57,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "Enter",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "OK",
+            "layer": "normal",
+            "color": "#17433b",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-fn",
+        "label": "fn",
+        "key": "Fn",
+        "x": 22.54,
+        "y": 339.53,
+        "width": 45.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "layer",
+        "fill": "#ff5b2e",
+        "legends": []
+      },
+      {
+        "id": "key-ctrl",
+        "label": "ctrl",
+        "key": "Ctrl",
+        "x": 76.24,
+        "y": 339.53,
+        "width": 45.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "layer",
+        "fill": "#ffd900",
+        "legends": []
+      },
+      {
+        "id": "key-alt",
+        "label": "alt",
+        "key": "Alt",
+        "x": 129.95,
+        "y": 339.53,
+        "width": 45.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "",
+        "role": "layer",
+        "fill": "#31b978",
+        "legends": []
+      },
+      {
+        "id": "key-z",
+        "label": "Z",
+        "key": "Z",
+        "x": 183.66,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Left",
+        "symKey": "",
+        "shiftKey": "Z",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\u25c0",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-x",
+        "label": "X",
+        "key": "X",
+        "x": 237.37,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Down",
+        "symKey": "",
+        "shiftKey": "X",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\u25bc",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-c",
+        "label": "C",
+        "key": "C",
+        "x": 291.08,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Right",
+        "symKey": "",
+        "shiftKey": "C",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "\u25b6",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-v",
+        "label": "V",
+        "key": "V",
+        "x": 344.79,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "<",
+        "shiftKey": "V",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "<",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-b",
+        "label": "B",
+        "key": "B",
+        "x": 398.5,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": ">",
+        "shiftKey": "B",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": ">",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-n",
+        "label": "N",
+        "key": "N",
+        "x": 452.21,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Home",
+        "symKey": "'",
+        "shiftKey": "N",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "Ho\nme",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 7.51,
+            "weight": "Bold"
+          },
+          {
+            "text": "'",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 10.89,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-m",
+        "label": "M",
+        "key": "M",
+        "x": 505.92,
+        "y": 339.53,
+        "width": 42.07,
+        "height": 33.05,
+        "fnKey": "Insert",
+        "symKey": "\"",
+        "shiftKey": "M",
+        "role": "key",
+        "fill": "",
+        "legends": [
+          {
+            "text": "Ins",
+            "layer": "fn",
+            "color": "#ff5b2e",
+            "position": "topLeft",
+            "fontSize": 9.01,
+            "weight": "Bold"
+          },
+          {
+            "text": "\u201c",
+            "layer": "sym",
+            "color": "#2f6fa5",
+            "position": "topRight",
+            "fontSize": 12.77,
+            "weight": "Bold"
+          }
+        ]
+      },
+      {
+        "id": "key-space",
+        "label": "\u2594",
+        "key": "Space",
+        "x": 559.62,
+        "y": 339.53,
+        "width": 43.57,
+        "height": 33.05,
+        "fnKey": "",
+        "symKey": "",
+        "shiftKey": "Space",
+        "role": "key",
+        "fill": "",
+        "legends": []
+      }
+    ]
+  }
 }

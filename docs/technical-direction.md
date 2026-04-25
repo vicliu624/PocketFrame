@@ -10,6 +10,7 @@ PocketFrame currently uses:
 - A native RFB/VNC client for remote Linux framebuffer display and input forwarding.
 - JSON device profiles for shell size, screen position, screen size, and button definitions.
 - A shared automation protocol project for internal command and result models.
+- A target environment automation layer for Linux-side commands, packages, VNC lifecycle, files, processes, and logs.
 - An app-side named pipe server for local automation commands.
 - An MCP stdio server as the AI-facing automation entry point.
 
@@ -32,7 +33,7 @@ AI Agent
   -> PocketFrame.Mcp over MCP stdio
   -> PocketFrame.App over an internal named pipe
   -> AutomationService
-  -> VNC, framebuffer, input, capture, and device models
+  -> VNC, framebuffer, input, capture, device models, and target environment adapters
 ```
 
 The GUI app starts the internal automation pipe server automatically. The MCP stdio process is normally launched by the MCP host, because stdio MCP requires the client process to own stdin/stdout. PocketFrame ships the MCP server alongside the app, but the GUI does not pre-launch a useful detached MCP stdio session by itself.
@@ -48,7 +49,16 @@ The GUI app starts the internal automation pipe server automatically. The MCP st
 - Add richer screen and device capture metadata.
 - Keep automation coordinates in device screen space, not host desktop space.
 
-### 2. Improve VNC Reliability
+### 2. Stabilize Target Environment Automation
+
+- Keep target environments separate from simulator internals.
+- Treat WSL as one adapter, not as the environment model itself.
+- Add local shell, SSH, container, and direct-device adapters over time.
+- Prefer semantic tools such as VNC lifecycle, package install, process control, file IO, app launch, and log tailing over raw shell commands.
+- Record environment commands in traces and reports.
+- Add command allowlists, per-profile permissions, and sensitive-output redaction.
+
+### 3. Improve VNC Reliability
 
 - Add Tight and ZRLE encodings.
 - Improve framebuffer update scheduling.
@@ -56,7 +66,7 @@ The GUI app starts the internal automation pipe server automatically. The MCP st
 - Improve pointer motion and keyboard chord fidelity.
 - Add optional clipboard support.
 
-### 3. Grow Device Profiles
+### 4. Grow Device Profiles
 
 - Refine Cardputer Zero geometry.
 - Refine uConsole geometry.
@@ -65,7 +75,7 @@ The GUI app starts the internal automation pipe server automatically. The MCP st
 - Support profile-specific keyboard layers and button semantics.
 - Support asset-backed shell rendering where vector assets are available.
 
-### 4. Simulate External Device Modules
+### 5. Simulate External Device Modules
 
 PocketFrame should eventually simulate external peripherals that small Linux apps commonly depend on. This is still higher-level integration simulation, not low-level bus emulation.
 
@@ -95,7 +105,7 @@ Examples:
 
 The goal is to support application-level debugging workflows without claiming to emulate physical buses such as GPIO, I2C, or SPI.
 
-### 5. Scenario and Test Automation
+### 6. Scenario and Test Automation
 
 - Add scenario files that describe device profile, VNC target, external modules, and initial state.
 - Add deterministic automation runs.
@@ -103,7 +113,7 @@ The goal is to support application-level debugging workflows without claiming to
 - Add MCP-friendly run summaries.
 - Keep original trace evidence separate from replay evidence.
 
-### 6. Recording and Reporting
+### 7. Recording and Reporting
 
 - Add screen-only recording.
 - Add full-device recording.

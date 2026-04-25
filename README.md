@@ -10,18 +10,21 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 - a fixed-size screen viewport;
 - a native RFB/VNC framebuffer client;
 - device-aware keyboard, pointer, and virtual button mapping;
+- layered physical keyboard profiles with AI-readable input models;
 - screen and device capture;
 - an MCP-first automation path for AI-driven debugging.
 
 ## Current Development Focus
 
-The current development focus is `0.6.0 - Robust Visual Regression Workflow`. It makes visual regression less brittle with region-limited comparisons, ignored dynamic areas, pixel tolerance, baseline update flows, and richer visual diff reports.
+The current development focus is `0.8.0 - Target Environment Automation`. It closes the AI debugging loop by separating simulator control from target Linux environment management, then exposing both through MCP and the same app automation pipe.
 
 The current direction focuses on:
 
 - stable frame observation through framebuffer hashes and quiet-window waiting;
 - replayable automation traces for debugging and regression checks;
 - scenario runs that execute actions, evaluate assertions, compare visual baselines, update baselines, and export reports;
+- target environment automation for Linux-side packages, files, processes, logs, and VNC lifecycle;
+- layered Cardputer Zero keyboard semantics for Fn, SYM, Aa, Ctrl, and Alt;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
 
@@ -42,6 +45,8 @@ The current built-in profiles include:
 - Cardputer Zero with a `320x170` screen;
 - uConsole with a `1280x720` screen.
 
+The Cardputer Zero profile follows the revised hardware layout with a layered keyboard, Micro-SD label, USB/GPIO markings, boot button marking, LAN marking, power panel, talk/next area, and function legends.
+
 ## What PocketFrame Is Not
 
 PocketFrame is not a virtual machine and does not emulate hardware. It does not simulate:
@@ -52,7 +57,9 @@ PocketFrame is not a virtual machine and does not emulate hardware. It does not 
 - storage, firmware, boot, or board-level behavior;
 - QEMU, VirtualBox, or container lifecycle management.
 
-PocketFrame expects an existing Linux graphical session exposed over VNC, then places that session inside a device shell and gives humans or AI agents device-level controls.
+PocketFrame expects a Linux graphical session exposed over VNC, then places that session inside a device shell and gives humans or AI agents device-level controls.
+
+PocketFrame can also prepare the target environment when a profile is configured. That means an AI agent can restart VNC at the expected geometry, install missing packages, launch a test app, inspect logs, and then return to framebuffer-based observation.
 
 ## Architecture
 
@@ -81,6 +88,9 @@ PocketFrame.Scenarios
 
 PocketFrame.Runner
   - Scenario runner for auditable run artifacts
+
+PocketFrame.Environments
+  - Target environment profiles, WSL/local adapters, command execution, VNC lifecycle, processes, files, and logs
 
 PocketFrame.Cli
   - Human and CI helper commands
@@ -206,12 +216,27 @@ Example MCP client configuration:
 Available MCP tools:
 
 - `pocketframe_get_state`
+- `pocketframe_get_input_model`
+- `pocketframe_get_keyboard_state`
 - `pocketframe_get_profiles`
 - `pocketframe_get_connections`
 - `pocketframe_select_device`
 - `pocketframe_set_scale`
 - `pocketframe_connect_vnc`
 - `pocketframe_disconnect_vnc`
+- `pocketframe_environment_profiles`
+- `pocketframe_environment_get_state`
+- `pocketframe_environment_exec`
+- `pocketframe_environment_start_vnc`
+- `pocketframe_environment_stop_vnc`
+- `pocketframe_environment_restart_vnc`
+- `pocketframe_environment_processes`
+- `pocketframe_environment_kill_process`
+- `pocketframe_environment_read_file`
+- `pocketframe_environment_write_file`
+- `pocketframe_environment_install_packages`
+- `pocketframe_environment_launch`
+- `pocketframe_environment_tail_file`
 - `pocketframe_frame_hash`
 - `pocketframe_capture_screen`
 - `pocketframe_capture_device`
@@ -219,12 +244,15 @@ Available MCP tools:
 - `pocketframe_press_key`
 - `pocketframe_press_button`
 - `pocketframe_click_screen`
+- `pocketframe_wait`
 - `pocketframe_wait_frame_change`
 - `pocketframe_wait_stable_frame`
 - `pocketframe_action_trace`
 - `pocketframe_replay_log`
 
 See `docs/mcp-automation.md` for schemas, examples, coordinate rules, and troubleshooting.
+
+`pocketframe_press_button` supports both short presses and hold durations, so AI agents can trigger physical long-press behavior such as Cardputer Zero `TALK` and `NEXT/HOME`.
 
 ## Scenarios
 
@@ -247,6 +275,12 @@ The CLI is intentionally small and does not replace MCP. Runtime commands still 
 ```bash
 pocketframe devices list
 pocketframe connections list
+pocketframe environments profiles
+pocketframe environments state --profile wsl-ubuntu-24.04
+pocketframe environments restart-vnc --profile wsl-ubuntu-24.04 --display :10 --geometry 320x170
+pocketframe environments install --update -- xterm openbox
+pocketframe environments launch -- 'DISPLAY=:10 xterm'
+pocketframe environments tail --path ~/pocketframe-app.log
 pocketframe profiles validate
 pocketframe app select-device cardputer-zero
 pocketframe app set-scale 1
@@ -273,7 +307,7 @@ See `docs/cli.md`.
 
 ## Scenario Runner
 
-`PocketFrame.Runner` turns a validated scenario into an auditable run directory. By default it uses the currently running app state. With `--prepare`, it selects the scenario device, sets the scenario scale, and connects VNC from the scenario connection settings before running.
+`PocketFrame.Runner` turns a validated scenario into an auditable run directory. By default it uses the currently running app state. With `--prepare`, it can prepare the target environment, select the scenario device, set the scenario scale, and connect VNC from the scenario connection settings before running.
 
 ```bash
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
@@ -287,6 +321,7 @@ runs/<scenario-name>/<timestamp>/
   scenario.json
   state.json
   action-trace.json
+  environment-state.json
   screenshots/
     initial-screen.png
     initial-device.png
@@ -343,17 +378,34 @@ Visual baseline assertions compare an actual screenshot label with a PNG baselin
 
 Use `--update-baselines` to create or approve baselines from the current actual screenshots.
 
+## Target Environments
+
+Target environments describe where the tested Linux desktop and application live. The default `environments.json` profile targets WSL Ubuntu 24.04, but the environment layer is intentionally not WSL-specific.
+
+Environment automation supports:
+
+- state inspection;
+- command execution with timeout, stdout, stderr, exit code, and duration;
+- VNC start, stop, and restart with explicit geometry;
+- process listing and process killing;
+- text file read and write;
+- apt package installation;
+- background app launch with log capture;
+- log tailing.
+
+See `docs/environments.md`.
+
 ## Automation Loop
 
 The recommended AI loop is:
 
 1. Send an action through MCP, such as text input, a key press, a device button press, or a screen click.
-2. Wait with `pocketframe_wait_stable_frame`.
+2. Wait with `pocketframe_wait` for fixed delays or `pocketframe_wait_stable_frame` when the screen should settle.
 3. Read `pocketframe_frame_hash` or capture the screen.
 4. Inspect the stable result.
 5. Save `pocketframe_action_trace` when the run should be replayed or audited.
 
-`pocketframe_wait_frame_change` remains available, but `pocketframe_wait_stable_frame` is the better default for reasoning because it waits for the screen to settle, not merely change once.
+`pocketframe_wait_frame_change` remains available, but `pocketframe_wait_stable_frame` is the better default for visual reasoning because it waits for the screen to settle, not merely change once. Use `pocketframe_wait` only when elapsed time itself is the synchronization condition.
 
 ## Automation Inspector
 
@@ -379,6 +431,8 @@ The inspector shows:
 It is a human debugging panel for the MCP bridge. It does not execute tools.
 
 The main window also shows a compact MCP activity panel in the lower-left corner of the simulator area. It lists the latest AI requests and simulator responses, such as typed text, key presses, screen clicks, captures, VNC connection preparation, and result summaries, without exposing VNC passwords.
+
+Environment operations also appear in the same panel, including command execution, package installation, VNC restart, process kill, app launch, and log tailing.
 
 ## Coordinate System
 
@@ -416,6 +470,8 @@ The profile defines:
 - screen position;
 - button geometry;
 - key mapping.
+- optional layered keyboard keys;
+- optional shell annotations such as ports, labels, badges, and hardware markings.
 
 See `docs/device-profile.md`.
 
@@ -436,7 +492,7 @@ See `CHANGELOG.md` for release notes.
 - MCP automation controls the running GUI app through a local named pipe.
 - The CLI is a human/CI helper and is not the AI-facing control plane.
 - The MCP server expects `PocketFrame.App` to already be running.
-- `scenario run` can prepare the device, scale, and VNC connection with `--prepare`, but it still expects `PocketFrame.App` to already be running.
+- `scenario run` can prepare the target environment, device, scale, and VNC connection with `--prepare`, but it still expects `PocketFrame.App` to already be running.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
 - Reports are generated from scenario, state, actions, assertions, visual baseline diffs, trace, and screenshot artifacts.
 - Recording remains a placeholder service.
@@ -445,6 +501,8 @@ See `CHANGELOG.md` for release notes.
 ## Roadmap
 
 - Improve RFB performance and add more encodings.
+- Expand target environment adapters beyond WSL, including local shell, SSH, and direct device shell targets.
+- Add environment safety policies such as command allowlists, per-profile permissions, and sensitive-output redaction.
 - Add Tight and ZRLE VNC encoding support.
 - Improve screenshot baseline comparison with mask images and region-level reports.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.

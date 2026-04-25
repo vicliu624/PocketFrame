@@ -1,6 +1,8 @@
 # Scenarios
 
-Scenarios describe repeatable automation runs. They are intentionally small and do not replace the GUI, MCP server, VNC client, or device profiles.
+Scenarios describe repeatable automation runs. They are intentionally small and do not replace the GUI, MCP server, VNC client, target environment adapters, or device profiles.
+
+Scenarios can also describe target environment preparation, including pre-commands, post-commands, and VNC lifecycle.
 
 The goal is to give future CLI, MCP, report, and CI workflows a shared run description:
 
@@ -62,6 +64,8 @@ Scenarios are declarative run descriptions. They are not a scripting language an
 
 Supported first-version actions:
 
+- `wait`
+- `waitFrameChange`
 - `waitStableFrame`
 - `captureScreen`
 - `captureDevice`
@@ -78,6 +82,35 @@ Example:
   "id": "type-ls",
   "type": "typeText",
   "text": "ls\n"
+}
+```
+
+Button actions can be short presses or holds. Omit `durationMs` or use `0` for a short press. Use a positive value to hold the button, which is how a scenario triggers device-specific long-press behavior such as Cardputer Zero `next-home` sending `Home`.
+
+```json
+{
+  "id": "hold-next-home",
+  "type": "pressButton",
+  "buttonId": "next-home",
+  "durationMs": 800
+}
+```
+
+Use `wait` for a fixed time delay. Use `waitFrameChange` when an action should wait for a framebuffer update. Use `waitStableFrame` when the agent needs the screen to settle before observing or capturing.
+
+```json
+{
+  "id": "wait-player-buffer",
+  "type": "wait",
+  "durationMs": 2000
+}
+```
+
+```json
+{
+  "id": "wait-after-click",
+  "type": "waitFrameChange",
+  "timeoutMs": 3000
 }
 ```
 
@@ -171,6 +204,8 @@ The runner expects `PocketFrame.App` to already be open. By default it uses the 
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --prepare --report
 ```
+
+When `environment.prepare` is true, or when `--prepare` is used, the runner can inspect the target environment, run pre-commands, start or restart VNC, then prepare the app-side device and VNC connection.
 
 The runner creates:
 

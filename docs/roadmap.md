@@ -89,7 +89,9 @@
 
 - Add robust visual regression workflow support with regions, ignored regions, pixel tolerance, and baseline update commands.
 - Add automation commands for selecting devices, setting scale, connecting VNC, disconnecting VNC, and reconnecting.
-- Allow the scenario runner to prepare the app state from scenario connection settings.
+- Allow the scenario runner to prepare target environments and app state from scenario settings.
+- Expand target environment adapters beyond WSL, including local shell, SSH, and direct device shell targets.
+- Add environment safety policies such as command allowlists, per-profile permissions, and sensitive-output redaction.
 - Add mask images and region-level visual diff metadata.
 - Keep scenario files declarative and avoid turning them into a general scripting language.
 

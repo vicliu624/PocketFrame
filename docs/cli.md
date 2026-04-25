@@ -9,6 +9,13 @@ Runtime commands use the same named pipe automation protocol as MCP, so the GUI 
 ```bash
 pocketframe devices list
 pocketframe connections list
+pocketframe environments profiles
+pocketframe environments state [--profile id]
+pocketframe environments exec -- command
+pocketframe environments restart-vnc --profile id --display :10 --geometry 320x170
+pocketframe environments install --update -- package...
+pocketframe environments launch -- command
+pocketframe environments tail --path path [--lines n]
 pocketframe profiles validate [profile.json|devices-root]
 pocketframe app select-device deviceId
 pocketframe app set-scale scale
@@ -18,6 +25,7 @@ pocketframe scenario validate scenario.json
 pocketframe scenario run scenario.json [--report|--no-report] [--update-baselines] [--prepare]
 pocketframe capture screen [output.png]
 pocketframe capture device [output.png]
+pocketframe wait durationMs
 pocketframe trace show [--limit n]
 pocketframe trace save action-trace.json
 pocketframe trace clear
@@ -59,6 +67,15 @@ Prepare the app from the scenario before running:
 
 ```bash
 dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario run scenarios/cardputer-zero-openbox-smoke.json --prepare --report
+```
+
+Inspect and prepare a target environment:
+
+```bash
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- environments state --profile wsl-ubuntu-24.04
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- environments restart-vnc --profile wsl-ubuntu-24.04 --display :10 --geometry 320x170
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- environments install --update -- xterm openbox
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- environments launch -- "DISPLAY=:10 xterm"
 ```
 
 Connect the running app directly:

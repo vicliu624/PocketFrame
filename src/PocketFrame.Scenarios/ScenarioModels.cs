@@ -13,6 +13,9 @@ public sealed class ScenarioDefinition
     [JsonPropertyName("connection")]
     public ScenarioConnection Connection { get; set; } = new();
 
+    [JsonPropertyName("environment")]
+    public ScenarioEnvironment Environment { get; set; } = new();
+
     [JsonPropertyName("scale")]
     public double Scale { get; set; } = 1;
 
@@ -39,6 +42,63 @@ public sealed class ScenarioConnection
 
     [JsonPropertyName("password")]
     public string Password { get; set; } = string.Empty;
+}
+
+public sealed class ScenarioEnvironment
+{
+    [JsonPropertyName("profileId")]
+    public string ProfileId { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("distro")]
+    public string Distro { get; set; } = string.Empty;
+
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = string.Empty;
+
+    [JsonPropertyName("prepare")]
+    public bool Prepare { get; set; }
+
+    [JsonPropertyName("startVnc")]
+    public bool StartVnc { get; set; } = true;
+
+    [JsonPropertyName("restartVnc")]
+    public bool RestartVnc { get; set; }
+
+    [JsonPropertyName("vncDisplay")]
+    public string VncDisplay { get; set; } = string.Empty;
+
+    [JsonPropertyName("vncGeometry")]
+    public string VncGeometry { get; set; } = string.Empty;
+
+    [JsonPropertyName("vncDepth")]
+    public int VncDepth { get; set; }
+
+    [JsonPropertyName("preCommands")]
+    public List<ScenarioEnvironmentCommand> PreCommands { get; set; } = [];
+
+    [JsonPropertyName("postCommands")]
+    public List<ScenarioEnvironmentCommand> PostCommands { get; set; } = [];
+}
+
+public sealed class ScenarioEnvironmentCommand
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = string.Empty;
+
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = string.Empty;
+
+    [JsonPropertyName("timeoutMs")]
+    public int TimeoutMs { get; set; }
+
+    [JsonPropertyName("continueOnFailure")]
+    public bool ContinueOnFailure { get; set; }
 }
 
 public sealed class ScenarioCaptureOptions
@@ -73,11 +133,17 @@ public sealed class ScenarioAction
     [JsonPropertyName("timeoutMs")]
     public int TimeoutMs { get; set; } = 5000;
 
+    [JsonPropertyName("afterFrame")]
+    public long? AfterFrame { get; set; }
+
     [JsonPropertyName("key")]
     public string Key { get; set; } = string.Empty;
 
     [JsonPropertyName("buttonId")]
     public string ButtonId { get; set; } = string.Empty;
+
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; }
 
     [JsonPropertyName("text")]
     public string Text { get; set; } = string.Empty;

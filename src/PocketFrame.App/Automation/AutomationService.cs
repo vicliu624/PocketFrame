@@ -11,6 +11,7 @@ using PocketFrame.App.ViewModels;
 using PocketFrame.App.Vnc;
 using PocketFrame.Automation;
 using PocketFrame.DeviceProfiles;
+using PocketFrame.Environments;
 
 namespace PocketFrame.App.Automation;
 
@@ -21,19 +22,22 @@ public sealed class AutomationService : IAutomationService
     private readonly IVncClientService vncClientService;
     private readonly IInputMappingService inputMappingService;
     private readonly IScreenshotService screenshotService;
+    private readonly IEnvironmentService environmentService;
 
     public AutomationService(
         MainWindowViewModel viewModel,
         Control deviceShell,
         IVncClientService vncClientService,
         IInputMappingService inputMappingService,
-        IScreenshotService screenshotService)
+        IScreenshotService screenshotService,
+        IEnvironmentService? environmentService = null)
     {
         this.viewModel = viewModel;
         this.deviceShell = deviceShell;
         this.vncClientService = vncClientService;
         this.inputMappingService = inputMappingService;
         this.screenshotService = screenshotService;
+        this.environmentService = environmentService ?? new EnvironmentService();
     }
 
     public Task<AutomationState> GetStateAsync()
@@ -54,6 +58,42 @@ public sealed class AutomationService : IAutomationService
             LastFrameUpdatedAt = vncClientService.LastFrameUpdatedAt
         });
     }
+
+    public Task<InputModelResult> GetInputModelAsync()
+    {
+        var profile = viewModel.SelectedProfile;
+        return Task.FromResult(new InputModelResult
+        {
+            DeviceId = profile?.Id ?? string.Empty,
+            Layers = profile?.Keyboard.Layers.ToList() ?? [],
+            Buttons = profile?.Buttons.Select(button => new InputButtonSummary
+            {
+                Id = button.Id,
+                Label = button.Label,
+                Key = button.KeyCode,
+                ShortPressKey = button.KeyCode,
+                SupportsLongPress = !string.IsNullOrWhiteSpace(button.LongPressKeyCode),
+                LongPressKey = button.LongPressKeyCode
+            }).ToList() ?? [],
+            Keys = profile?.Keyboard.Keys.Select(key => new InputKeySummary
+            {
+                Id = key.Id,
+                Label = key.Label,
+                X = key.X,
+                Y = key.Y,
+                Width = key.Width,
+                Height = key.Height,
+                Normal = key.KeyCode,
+                Fn = key.FnKeyCode,
+                Sym = key.SymKeyCode,
+                Shift = key.ShiftKeyCode,
+                Role = key.Role
+            }).ToList() ?? []
+        });
+    }
+
+    public Task<KeyboardStateResult> GetKeyboardStateAsync() =>
+        Task.FromResult(new KeyboardStateResult { ActiveLayers = viewModel.DeviceShell.ActiveLayers.ToList() });
 
     public async Task<DeviceProfilesResult> GetProfilesAsync()
     {
@@ -130,6 +170,45 @@ public sealed class AutomationService : IAutomationService
         await viewModel.DisconnectAsync();
         return new AutomationOperationResult { Message = "Disconnected VNC." };
     }
+
+    public Task<EnvironmentProfilesResult> GetEnvironmentProfilesAsync() =>
+        environmentService.GetProfilesAsync();
+
+    public Task<EnvironmentStateResult> GetEnvironmentStateAsync(string profileId) =>
+        environmentService.GetStateAsync(profileId);
+
+    public Task<EnvironmentCommandResult> ExecuteEnvironmentCommandAsync(EnvironmentCommandParams parameters) =>
+        environmentService.ExecuteAsync(parameters);
+
+    public Task<EnvironmentOperationResult> StartEnvironmentVncAsync(EnvironmentVncParams parameters) =>
+        environmentService.StartVncAsync(parameters);
+
+    public Task<EnvironmentOperationResult> StopEnvironmentVncAsync(EnvironmentVncParams parameters) =>
+        environmentService.StopVncAsync(parameters);
+
+    public Task<EnvironmentOperationResult> RestartEnvironmentVncAsync(EnvironmentVncParams parameters) =>
+        environmentService.RestartVncAsync(parameters);
+
+    public Task<EnvironmentProcessesResult> GetEnvironmentProcessesAsync(EnvironmentProcessQueryParams parameters) =>
+        environmentService.GetProcessesAsync(parameters);
+
+    public Task<EnvironmentOperationResult> KillEnvironmentProcessAsync(EnvironmentKillProcessParams parameters) =>
+        environmentService.KillProcessAsync(parameters);
+
+    public Task<EnvironmentFileResult> ReadEnvironmentFileAsync(EnvironmentFileParams parameters) =>
+        environmentService.ReadFileAsync(parameters);
+
+    public Task<EnvironmentOperationResult> WriteEnvironmentFileAsync(EnvironmentFileParams parameters) =>
+        environmentService.WriteFileAsync(parameters);
+
+    public Task<EnvironmentOperationResult> InstallEnvironmentPackagesAsync(EnvironmentInstallPackagesParams parameters) =>
+        environmentService.InstallPackagesAsync(parameters);
+
+    public Task<EnvironmentLaunchResult> LaunchEnvironmentProcessAsync(EnvironmentLaunchParams parameters) =>
+        environmentService.LaunchAsync(parameters);
+
+    public Task<EnvironmentFileResult> TailEnvironmentFileAsync(EnvironmentTailFileParams parameters) =>
+        environmentService.TailFileAsync(parameters);
 
     public Task<FrameHashResult> GetFrameHashAsync()
     {
@@ -244,11 +323,40 @@ public sealed class AutomationService : IAutomationService
         }
     }
 
-    public async Task PressButtonAsync(string buttonId)
+    public async Task PressButtonAsync(ButtonPressParams parameters)
     {
         RequireConnected();
-        var button = ResolveButton(buttonId);
-        await viewModel.DeviceShell.SendButtonAsync(button);
+        if (string.IsNullOrWhiteSpace(parameters.ButtonId))
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "press_button buttonId is required.");
+        }
+
+        if (parameters.DurationMs < 0)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "press_button durationMs must be non-negative.");
+        }
+
+        if (parameters.DurationMs > 60000)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "press_button durationMs must be 60000 or less.");
+        }
+
+        var button = ResolveButton(parameters.ButtonId);
+        if (parameters.DurationMs == 0 || IsRebootButton(button))
+        {
+            await viewModel.DeviceShell.SendButtonAsync(button);
+            return;
+        }
+
+        await viewModel.DeviceShell.BeginButtonPressAsync(button);
+        try
+        {
+            await Task.Delay(parameters.DurationMs);
+        }
+        finally
+        {
+            await viewModel.DeviceShell.EndButtonPressAsync(button);
+        }
     }
 
     public async Task ClickScreenAsync(int x, int y, string button)
@@ -265,6 +373,29 @@ public sealed class AutomationService : IAutomationService
         await vncClientService.SendPointerAsync(x, y, mask);
         await Task.Delay(60);
         await vncClientService.SendPointerAsync(x, y, 0);
+    }
+
+    public async Task<WaitResult> WaitAsync(int durationMs)
+    {
+        if (durationMs <= 0)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "wait durationMs must be greater than 0.");
+        }
+
+        if (durationMs > 600000)
+        {
+            throw new AutomationException(AutomationErrorCodes.InvalidRequest, "wait durationMs must be 600000 or less.");
+        }
+
+        var start = Environment.TickCount64;
+        await Task.Delay(durationMs);
+        var frame = await GetFrameHashOrEmptyAsync();
+        return new WaitResult
+        {
+            WaitedMs = (int)(Environment.TickCount64 - start),
+            FrameIndex = frame.FrameIndex,
+            FrameHash = frame.FrameHash
+        };
     }
 
     public async Task<WaitFrameResult> WaitFrameChangeAsync(long? afterFrame, int timeoutMs)
@@ -375,6 +506,18 @@ public sealed class AutomationService : IAutomationService
         return framebuffer is null ? null : ComputeFrameHash(framebuffer);
     }
 
+    private async Task<FrameHashResult> GetFrameHashOrEmptyAsync()
+    {
+        try
+        {
+            return await GetFrameHashAsync();
+        }
+        catch
+        {
+            return new FrameHashResult { FrameIndex = vncClientService.FrameIndex };
+        }
+    }
+
     private static string ComputeFrameHash(RfbFramebuffer framebuffer)
     {
         var snapshot = framebuffer.Snapshot();
@@ -407,6 +550,29 @@ public sealed class AutomationService : IAutomationService
             return profileButton;
         }
 
+        var profileKey = viewModel.SelectedProfile?.Keyboard.Keys.FirstOrDefault(key =>
+            key.Id.Equals(buttonId, StringComparison.OrdinalIgnoreCase) ||
+            key.Label.Equals(buttonId, StringComparison.OrdinalIgnoreCase));
+        if (profileKey is not null)
+        {
+            return new ButtonProfile
+            {
+                Id = profileKey.Id,
+                Label = profileKey.Label,
+                KeyCode = profileKey.KeyCode,
+                FnKeyCode = profileKey.FnKeyCode,
+                OrangeKeyCode = profileKey.FnKeyCode,
+                SymKeyCode = profileKey.SymKeyCode,
+                BlueKeyCode = profileKey.SymKeyCode,
+                ShiftKeyCode = profileKey.ShiftKeyCode,
+                Role = profileKey.Role,
+                X = profileKey.X,
+                Y = profileKey.Y,
+                Width = profileKey.Width,
+                Height = profileKey.Height
+            };
+        }
+
         var virtualButton = ResolveCardputerKeyboardButton(buttonId) ?? ResolveGenericKeyboardButton(buttonId);
         if (virtualButton is not null)
         {
@@ -415,6 +581,10 @@ public sealed class AutomationService : IAutomationService
 
         throw new InvalidOperationException($"Unknown device button '{buttonId}'.");
     }
+
+    private static bool IsRebootButton(ButtonProfile button) =>
+        button.KeyCode.Equals("Reboot", StringComparison.OrdinalIgnoreCase) ||
+        button.LongPressKeyCode.Equals("Reboot", StringComparison.OrdinalIgnoreCase);
 
     private static ButtonProfile? ResolveGenericKeyboardButton(string buttonId)
     {

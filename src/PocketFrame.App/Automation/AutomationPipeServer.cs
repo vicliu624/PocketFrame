@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using PocketFrame.App.Utils;
 using PocketFrame.Automation;
+using PocketFrame.Environments;
 
 namespace PocketFrame.App.Automation;
 
@@ -113,23 +114,39 @@ public sealed class AutomationPipeServer : IAsyncDisposable
             object? result = command.Method switch
             {
                 "get_state" => await automationService.GetStateAsync(),
+                "get_input_model" => await automationService.GetInputModelAsync(),
+                "get_keyboard_state" => await automationService.GetKeyboardStateAsync(),
                 "get_profiles" => await automationService.GetProfilesAsync(),
                 "get_connections" => await automationService.GetConnectionsAsync(),
                 "select_device" => await automationService.SelectDeviceAsync(ReadParams<SelectDeviceParams>(command).DeviceId),
                 "set_scale" => await automationService.SetScaleAsync(ReadParams<SetScaleParams>(command).Scale),
                 "connect_vnc" => await automationService.ConnectVncAsync(ReadParams<ConnectVncParams>(command)),
                 "disconnect_vnc" => await automationService.DisconnectVncAsync(),
+                "environment_profiles" => await automationService.GetEnvironmentProfilesAsync(),
+                "environment_get_state" => await automationService.GetEnvironmentStateAsync(ReadProfileId(command)),
+                "environment_exec" => await automationService.ExecuteEnvironmentCommandAsync(ReadParams<EnvironmentCommandParams>(command)),
+                "environment_start_vnc" => await automationService.StartEnvironmentVncAsync(ReadParams<EnvironmentVncParams>(command)),
+                "environment_stop_vnc" => await automationService.StopEnvironmentVncAsync(ReadParams<EnvironmentVncParams>(command)),
+                "environment_restart_vnc" => await automationService.RestartEnvironmentVncAsync(ReadParams<EnvironmentVncParams>(command)),
+                "environment_processes" => await automationService.GetEnvironmentProcessesAsync(ReadParams<EnvironmentProcessQueryParams>(command)),
+                "environment_kill_process" => await automationService.KillEnvironmentProcessAsync(ReadParams<EnvironmentKillProcessParams>(command)),
+                "environment_read_file" => await automationService.ReadEnvironmentFileAsync(ReadParams<EnvironmentFileParams>(command)),
+                "environment_write_file" => await automationService.WriteEnvironmentFileAsync(ReadParams<EnvironmentFileParams>(command)),
+                "environment_install_packages" => await automationService.InstallEnvironmentPackagesAsync(ReadParams<EnvironmentInstallPackagesParams>(command)),
+                "environment_launch" => await automationService.LaunchEnvironmentProcessAsync(ReadParams<EnvironmentLaunchParams>(command)),
+                "environment_tail_file" => await automationService.TailEnvironmentFileAsync(ReadParams<EnvironmentTailFileParams>(command)),
                 "frame_hash" => await automationService.GetFrameHashAsync(),
                 "capture_screen" => await automationService.CaptureScreenAsync(ReadParams<CaptureParams>(command).OutputPath),
                 "capture_device" => await automationService.CaptureDeviceAsync(ReadParams<CaptureParams>(command).OutputPath),
                 "type_text" => await RunAsync(async () => await automationService.TypeTextAsync(ReadParams<TextInputParams>(command).Text)),
                 "press_key" => await RunAsync(async () => await automationService.PressKeyAsync(ReadParams<KeyPressParams>(command).Key)),
-                "press_button" => await RunAsync(async () => await automationService.PressButtonAsync(ReadParams<ButtonPressParams>(command).ButtonId)),
+                "press_button" => await RunAsync(async () => await automationService.PressButtonAsync(ReadParams<ButtonPressParams>(command))),
                 "click_screen" => await RunAsync(async () =>
                 {
                     var parameters = ReadParams<ClickScreenParams>(command);
                     await automationService.ClickScreenAsync(parameters.X, parameters.Y, parameters.Button);
                 }),
+                "wait" => await automationService.WaitAsync(ReadParams<WaitParams>(command).DurationMs),
                 "wait_frame_change" => await automationService.WaitFrameChangeAsync(ReadParams<WaitFrameChangeParams>(command).AfterFrame, ReadParams<WaitFrameChangeParams>(command).TimeoutMs),
                 "wait_stable_frame" => await automationService.WaitStableFrameAsync(ReadParams<WaitStableFrameParams>(command).QuietMs, ReadParams<WaitStableFrameParams>(command).TimeoutMs),
                 "action_trace" => ActionTrace(ReadParams<ActionTraceParams>(command)),
@@ -159,6 +176,13 @@ public sealed class AutomationPipeServer : IAsyncDisposable
         {
             InputDiagnostics.Write("Automation", $"Command IO failed {command.Method}: {ex.Message}");
             var response = AutomationResponse.Failure(command.Id, AutomationErrorCodes.IoError, ex.Message);
+            await CompleteTraceEntryAsync(traceEntry, response);
+            return response;
+        }
+        catch (InvalidOperationException ex)
+        {
+            InputDiagnostics.Write("Automation", $"Command invalid {command.Method}: {ex.Message}");
+            var response = AutomationResponse.Failure(command.Id, AutomationErrorCodes.InvalidRequest, ex.Message);
             await CompleteTraceEntryAsync(traceEntry, response);
             return response;
         }
@@ -308,11 +332,14 @@ public sealed class AutomationPipeServer : IAsyncDisposable
     }
 
     private static bool IsReplayable(AutomationActionTraceEntry entry) =>
-        entry.Method is "type_text" or "press_key" or "press_button" or "click_screen" or "wait_frame_change" or "wait_stable_frame";
+        entry.Method is "type_text" or "press_key" or "press_button" or "click_screen" or "wait" or "wait_frame_change" or "wait_stable_frame";
 
     private static bool IsTraceable(string method) =>
         method is "select_device" or "set_scale" or "connect_vnc" or "disconnect_vnc" or
-            "capture_screen" or "capture_device" or "type_text" or "press_key" or "press_button" or "click_screen" or "wait_frame_change" or "wait_stable_frame";
+            "environment_exec" or "environment_start_vnc" or "environment_stop_vnc" or "environment_restart_vnc" or
+            "environment_kill_process" or "environment_read_file" or "environment_write_file" or
+            "environment_install_packages" or "environment_launch" or "environment_tail_file" or
+            "capture_screen" or "capture_device" or "type_text" or "press_key" or "press_button" or "click_screen" or "wait" or "wait_frame_change" or "wait_stable_frame";
 
     private AutomationActionTraceEntry? FindTraceEntry(string id)
     {
@@ -351,6 +378,9 @@ public sealed class AutomationPipeServer : IAsyncDisposable
         return command.Params.Value.Deserialize<T>(AutomationJson.Options) ??
                Activator.CreateInstance<T>();
     }
+
+    private static string ReadProfileId(AutomationCommand command) =>
+        ReadParams<EnvironmentCommandParams>(command).ProfileId;
 
     private static async Task<object> RunAsync(Func<Task> action)
     {
@@ -428,9 +458,10 @@ public sealed class AutomationActivityEventArgs : EventArgs
                 return $"{time} AI -> {FormatRequest(Method, Parameters)}";
             }
 
+            var responder = Method.StartsWith("environment_", StringComparison.Ordinal) ? "Env" : "Sim";
             return string.IsNullOrWhiteSpace(Error)
-                ? $"{time} Sim <- {FormatResponse(Method, ResponseResult)}"
-                : $"{time} Sim <- {Method}: {Result} - {Error}";
+                ? $"{time} {responder} <- {FormatResponse(Method, ResponseResult)}"
+                : $"{time} {responder} <- {Method}: {Result} - {Error}";
         }
     }
 
@@ -446,8 +477,9 @@ public sealed class AutomationActivityEventArgs : EventArgs
         {
             "type_text" => $"type text {Quoted(ReadString(parameters, "text"))}",
             "press_key" => $"press key {ReadString(parameters, "key")}",
-            "press_button" => $"press button {ReadString(parameters, "buttonId")}",
+            "press_button" => FormatPressButtonRequest(parameters),
             "click_screen" => $"click screen ({ReadInt(parameters, "x")}, {ReadInt(parameters, "y")}) {ReadString(parameters, "button", "left")}",
+            "wait" => $"wait {ReadInt(parameters, "durationMs", 1000)}ms",
             "wait_stable_frame" => $"wait stable frame {ReadInt(parameters, "quietMs", 300)}ms",
             "wait_frame_change" => $"wait frame change timeout {ReadInt(parameters, "timeoutMs", 3000)}ms",
             "capture_screen" => $"capture screen {PathHint(ReadString(parameters, "outputPath"))}",
@@ -457,9 +489,24 @@ public sealed class AutomationActivityEventArgs : EventArgs
             "connect_vnc" => FormatConnectRequest(parameters),
             "disconnect_vnc" => "disconnect VNC",
             "get_state" => "inspect state",
+            "get_input_model" => "inspect input model",
+            "get_keyboard_state" => "inspect keyboard state",
             "frame_hash" => "read frame hash",
             "get_profiles" => "list device profiles",
             "get_connections" => "list saved connections",
+            "environment_profiles" => "list target environments",
+            "environment_get_state" => $"inspect environment {ReadString(parameters, "profileId", "default")}",
+            "environment_exec" => $"env exec {Quoted(ReadString(parameters, "command"))}",
+            "environment_start_vnc" => $"start env VNC {ReadString(parameters, "display", "profile display")} {ReadString(parameters, "geometry", "profile geometry")}",
+            "environment_stop_vnc" => $"stop env VNC {ReadString(parameters, "display", "profile display")}",
+            "environment_restart_vnc" => $"restart env VNC {ReadString(parameters, "display", "profile display")} {ReadString(parameters, "geometry", "profile geometry")}",
+            "environment_processes" => $"list env processes {ReadString(parameters, "filter")}",
+            "environment_kill_process" => $"kill env process {ReadKillTarget(parameters)}",
+            "environment_read_file" => $"read env file {PathHint(ReadString(parameters, "path"))}",
+            "environment_write_file" => $"write env file {PathHint(ReadString(parameters, "path"))}",
+            "environment_install_packages" => $"install env packages {ReadArrayPreview(parameters, "packages")}",
+            "environment_launch" => $"launch env app {Quoted(ReadString(parameters, "command"))}",
+            "environment_tail_file" => $"tail env file {PathHint(ReadString(parameters, "path"))}",
             "action_trace" => "read action trace",
             "replay_log" => $"replay trace {PathHint(ReadString(parameters, "path"))}",
             _ => method
@@ -475,15 +522,27 @@ public sealed class AutomationActivityEventArgs : EventArgs
             "press_key" => "sent key",
             "press_button" => "pressed device button",
             "click_screen" => "sent pointer click",
+            "wait" => $"waited {ReadInt(json, "waitedMs")}ms frame={ReadLong(json, "frameIndex")}",
             "wait_stable_frame" => $"stable={ReadBool(json, "stable")} frame={ReadLong(json, "frameIndex")}",
             "wait_frame_change" => $"changed={ReadBool(json, "changed")} frame={ReadLong(json, "currentFrameIndex")}",
             "capture_screen" => $"screen saved {PathHint(ReadString(json, "path"))}",
             "capture_device" => $"device saved {PathHint(ReadString(json, "path"))}",
             "select_device" or "set_scale" or "connect_vnc" or "disconnect_vnc" => ReadString(json, "message", "OK"),
             "get_state" => $"state {ReadString(json, "deviceId")} connected={ReadBool(json, "connected")}",
+            "get_input_model" => $"input model keys={CountArray(json, "keys")}",
+            "get_keyboard_state" => $"layers active={CountArray(json, "activeLayers")}",
             "frame_hash" => $"hash {Short(ReadString(json, "frameHash"))} frame={ReadLong(json, "frameIndex")}",
             "get_profiles" => $"profiles listed ({CountArray(json, "profiles")})",
             "get_connections" => $"connections listed ({CountArray(json, "connections")})",
+            "environment_profiles" => $"environments listed ({CountArray(json, "profiles")})",
+            "environment_get_state" => $"env available={ReadBool(json, "available")} vnc={ReadNestedBool(json, "vnc", "running")}",
+            "environment_exec" => $"env exit={ReadInt(json, "exitCode")} {ReadInt(json, "durationMs")}ms",
+            "environment_start_vnc" or "environment_stop_vnc" or "environment_restart_vnc" or "environment_kill_process" or "environment_write_file" => ReadString(json, "message", "OK"),
+            "environment_install_packages" => ReadString(json, "message", "OK"),
+            "environment_launch" => $"launched pid={ReadInt(json, "pid")} log={PathHint(ReadString(json, "logPath"))}",
+            "environment_processes" => $"processes listed ({CountArray(json, "processes")})",
+            "environment_read_file" => $"file read {PathHint(ReadString(json, "path"))}",
+            "environment_tail_file" => $"file tailed {PathHint(ReadString(json, "path"))}",
             "action_trace" => $"trace entries={CountArray(json, "entries")}",
             "replay_log" => $"replayed={ReadInt(json, "replayed")} failed={ReadInt(json, "failed")}",
             _ => "OK"
@@ -499,6 +558,13 @@ public sealed class AutomationActivityEventArgs : EventArgs
         }
 
         return $"connect VNC {ReadString(parameters, "host")}:{ReadInt(parameters, "port")} device={ReadString(parameters, "deviceId")}";
+    }
+
+    private static string FormatPressButtonRequest(JsonElement? parameters)
+    {
+        var buttonId = ReadString(parameters, "buttonId");
+        var durationMs = ReadInt(parameters, "durationMs");
+        return durationMs > 0 ? $"hold button {buttonId} {durationMs}ms" : $"press button {buttonId}";
     }
 
     private static JsonElement? ToJsonElement(object? value)
@@ -555,6 +621,13 @@ public sealed class AutomationActivityEventArgs : EventArgs
                property.GetBoolean();
     }
 
+    private static bool ReadNestedBool(JsonElement? element, string objectName, string name)
+    {
+        return element is { ValueKind: JsonValueKind.Object } value &&
+               value.TryGetProperty(objectName, out var nested) &&
+               ReadBool(nested, name);
+    }
+
     private static int CountArray(JsonElement? element, string name)
     {
         return element is { ValueKind: JsonValueKind.Object } value &&
@@ -583,5 +656,29 @@ public sealed class AutomationActivityEventArgs : EventArgs
     private static string Short(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? string.Empty : value[..Math.Min(value.Length, 8)];
+    }
+
+    private static string ReadKillTarget(JsonElement? parameters)
+    {
+        var pid = ReadInt(parameters, "pid");
+        return pid > 0 ? $"pid={pid}" : ReadString(parameters, "match");
+    }
+
+    private static string ReadArrayPreview(JsonElement? element, string name)
+    {
+        if (element is not { ValueKind: JsonValueKind.Object } value ||
+            !value.TryGetProperty(name, out var property) ||
+            property.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        var items = property.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString() ?? string.Empty)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Take(4)
+            .ToList();
+        return string.Join(", ", items);
     }
 }

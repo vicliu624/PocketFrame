@@ -32,6 +32,63 @@ The automation pipe is started automatically when the main window opens. The sta
 
 You can connect a VNC session from the GUI, or let an MCP client prepare the app with `pocketframe_select_device`, `pocketframe_set_scale`, and `pocketframe_connect_vnc`.
 
+For AI-driven debugging, MCP can also prepare the target Linux environment through `pocketframe_environment_*` tools. These tools are routed through `PocketFrame.App`, so the GUI activity panel and run reports can show what the AI did outside the framebuffer.
+
+## Target Environment Tools
+
+Environment tools are adapter-based. The default adapter is WSL, but the MCP schema describes target environment operations rather than WSL-specific commands.
+
+- `pocketframe_environment_profiles`
+- `pocketframe_environment_get_state`
+- `pocketframe_environment_exec`
+- `pocketframe_environment_start_vnc`
+- `pocketframe_environment_stop_vnc`
+- `pocketframe_environment_restart_vnc`
+- `pocketframe_environment_processes`
+- `pocketframe_environment_kill_process`
+- `pocketframe_environment_read_file`
+- `pocketframe_environment_write_file`
+- `pocketframe_environment_install_packages`
+- `pocketframe_environment_launch`
+- `pocketframe_environment_tail_file`
+
+## Input Model Tools
+
+Use `pocketframe_get_input_model` when an agent needs to understand a device keyboard instead of guessing physical shortcuts. It returns physical buttons, `shortPressKey`, optional `longPressKey`, `supportsLongPress`, keyboard keys, coordinates, layers, and normal/Fn/SYM/Shift actions.
+
+Use `pocketframe_get_keyboard_state` to inspect currently latched layers such as `fn`, `sym`, `shift`, `ctrl`, or `alt`.
+
+Example VNC restart:
+
+```json
+{
+  "profileId": "wsl-ubuntu-24.04",
+  "display": ":10",
+  "geometry": "320x170",
+  "depth": 24
+}
+```
+
+Example package install:
+
+```json
+{
+  "profileId": "wsl-ubuntu-24.04",
+  "packages": ["xterm", "openbox"],
+  "update": true
+}
+```
+
+Example app launch:
+
+```json
+{
+  "profileId": "wsl-ubuntu-24.04",
+  "command": "DISPLAY=:10 xterm",
+  "logPath": "~/pocketframe-xterm.log"
+}
+```
+
 ## MCP Startup Model
 
 `PocketFrame.App` starts the internal automation named pipe automatically. The MCP stdio process is normally launched by the MCP host, because stdio MCP requires the client to own the server process stdin/stdout streams.
@@ -229,15 +286,18 @@ Examples:
 
 ### `pocketframe_press_button`
 
-Presses a semantic device button or virtual keyboard button. This uses the same input mapping as the rendered device shell.
+Presses or holds a semantic device button or virtual keyboard button. This uses the same input mapping as the rendered device shell.
 
 Arguments:
 
 ```json
 {
-  "buttonId": "ok"
+  "buttonId": "ok",
+  "durationMs": 0
 }
 ```
+
+`durationMs` is optional. Omit it or use `0` for a short press. Use a positive duration to hold the button. For hardware-style long-press behavior, use at least the same threshold as the GUI interaction, typically `420` ms or more.
 
 Common values:
 
@@ -261,6 +321,16 @@ keyboard-del
 
 For Cardputer Zero, `blue` and `orange` are layer keys. For example, call `pocketframe_press_button` with `buttonId = "orange"` and then `buttonId = "keyboard-z"` to send the orange-layer left arrow.
 
+Cardputer Zero physical buttons can also expose separate short-press and long-press behavior through the input model. For example:
+
+```json
+{ "buttonId": "next-home" }
+{ "buttonId": "next-home", "durationMs": 800 }
+{ "buttonId": "talk", "durationMs": 1200 }
+```
+
+The first command sends the short-press action for `NEXT`. The second holds the same physical button long enough to send its `HOME` behavior. The third models holding the `TALK` button.
+
 ### `pocketframe_click_screen`
 
 Clicks a point in VNC screen coordinates.
@@ -276,6 +346,30 @@ Arguments:
 ```
 
 Coordinates are relative to the device screen framebuffer, not the host desktop window and not the rendered shell.
+
+### `pocketframe_wait`
+
+Waits for a fixed duration without requiring the framebuffer to change or become stable. Use this for animation delays, app startup pauses, playback buffering, or any case where a scenario needs time to pass even if the screen may not produce a clean synchronization signal.
+
+Arguments:
+
+```json
+{
+  "durationMs": 1000
+}
+```
+
+Example result:
+
+```json
+{
+  "waitedMs": 1003,
+  "frameIndex": 123,
+  "frameHash": "b4a8..."
+}
+```
+
+The wait is included in the app-side action trace and can be replayed.
 
 ### `pocketframe_wait_frame_change`
 

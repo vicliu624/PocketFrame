@@ -98,6 +98,18 @@ public sealed class WaitStableFrameResult
     public int ElapsedMs { get; set; }
 }
 
+public sealed class WaitResult
+{
+    [JsonPropertyName("waitedMs")]
+    public int WaitedMs { get; set; }
+
+    [JsonPropertyName("frameIndex")]
+    public long FrameIndex { get; set; }
+
+    [JsonPropertyName("frameHash")]
+    public string FrameHash { get; set; } = string.Empty;
+}
+
 public sealed class AutomationActionTraceEntry
 {
     [JsonPropertyName("id")]
@@ -186,6 +198,9 @@ public sealed class ButtonPressParams
 {
     [JsonPropertyName("buttonId")]
     public string ButtonId { get; set; } = string.Empty;
+
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; }
 }
 
 public sealed class ClickScreenParams
@@ -222,6 +237,12 @@ public sealed class WaitStableFrameParams
 
     [JsonPropertyName("timeoutMs")]
     public int TimeoutMs { get; set; } = 5000;
+}
+
+public sealed class WaitParams
+{
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; } = 1000;
 }
 
 public sealed class ActionTraceParams
@@ -342,4 +363,82 @@ public sealed class AutomationOperationResult
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = string.Empty;
+}
+
+public sealed class InputModelResult
+{
+    [JsonPropertyName("deviceId")]
+    public string DeviceId { get; set; } = string.Empty;
+
+    [JsonPropertyName("layers")]
+    public List<string> Layers { get; set; } = [];
+
+    [JsonPropertyName("buttons")]
+    public List<InputButtonSummary> Buttons { get; set; } = [];
+
+    [JsonPropertyName("keys")]
+    public List<InputKeySummary> Keys { get; set; } = [];
+}
+
+public sealed class InputButtonSummary
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("shortPressKey")]
+    public string ShortPressKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("longPressKey")]
+    public string LongPressKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("supportsLongPress")]
+    public bool SupportsLongPress { get; set; }
+}
+
+public sealed class InputKeySummary
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("x")]
+    public double X { get; set; }
+
+    [JsonPropertyName("y")]
+    public double Y { get; set; }
+
+    [JsonPropertyName("width")]
+    public double Width { get; set; }
+
+    [JsonPropertyName("height")]
+    public double Height { get; set; }
+
+    [JsonPropertyName("normal")]
+    public string Normal { get; set; } = string.Empty;
+
+    [JsonPropertyName("fn")]
+    public string Fn { get; set; } = string.Empty;
+
+    [JsonPropertyName("sym")]
+    public string Sym { get; set; } = string.Empty;
+
+    [JsonPropertyName("shift")]
+    public string Shift { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = string.Empty;
+}
+
+public sealed class KeyboardStateResult
+{
+    [JsonPropertyName("activeLayers")]
+    public List<string> ActiveLayers { get; set; } = [];
 }

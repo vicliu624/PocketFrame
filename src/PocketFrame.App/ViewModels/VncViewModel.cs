@@ -22,8 +22,33 @@ public sealed class VncViewModel : ObservableObject
     public string Host { get => host; set => SetProperty(ref host, value); }
     public int Port { get => port; set => SetProperty(ref port, value); }
     public string Password { get => password; set => SetProperty(ref password, value); }
-    public string Status { get => status; set => SetProperty(ref status, value); }
-    public RfbFramebuffer? Framebuffer { get => framebuffer; set => SetProperty(ref framebuffer, value); }
+    public string Status
+    {
+        get => status;
+        set
+        {
+            if (SetProperty(ref status, value))
+            {
+                OnPropertyChanged(nameof(ShowPlaceholder));
+            }
+        }
+    }
+
+    public RfbFramebuffer? Framebuffer
+    {
+        get => framebuffer;
+        set
+        {
+            if (SetProperty(ref framebuffer, value))
+            {
+                OnPropertyChanged(nameof(HasFramebuffer));
+                OnPropertyChanged(nameof(ShowPlaceholder));
+            }
+        }
+    }
+
+    public bool HasFramebuffer => Framebuffer is not null;
+    public bool ShowPlaceholder => Framebuffer is null && !Status.StartsWith("Connected", StringComparison.OrdinalIgnoreCase);
 
     public VncConnectionOptions CreateOptions() => new() { Host = Host, Port = Port, Password = Password };
 }

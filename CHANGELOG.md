@@ -4,6 +4,31 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.8.0] - 2026-04-26
+
+### Added
+
+- Added layered keyboard profile models for physical keys, key legends, key layers, and shell annotations.
+- Added an updated Cardputer Zero hardware profile with the revised keyboard layout, Fn/SYM/Aa layers, USB/GPIO/Micro-SD/Boot/LAN/Power visual annotations, and AI-readable input metadata.
+- Added MCP tools for `pocketframe_get_input_model` and `pocketframe_get_keyboard_state`.
+- Added `PocketFrame.Environments` as a target environment automation layer separate from the simulator layer.
+- Added `environments.json` with a WSL Ubuntu 24.04 profile for local Linux desktop and VNC preparation.
+- Added environment MCP tools for profile listing, state inspection, command execution, VNC lifecycle, process listing, process killing, file read/write, apt package installation, background app launch, and log tailing.
+- Added matching CLI environment commands for human and CI use through the same app automation pipe.
+- Added scenario `environment` configuration with pre-commands, post-commands, and VNC start/restart preparation.
+- Added environment command evidence to scenario run results and Markdown reports.
+- Added environment validation and parsing tests.
+- Added hold-duration support to MCP and scenario `pressButton` automation so device long-press actions can be driven by AI agents.
+- Added input-model metadata for button short-press keys, long-press keys, and long-press availability.
+- Added plain time-based `wait` automation for MCP, CLI, scenario actions, action traces, and replay logs.
+- Added scenario `waitFrameChange` actions to align scenario synchronization with MCP synchronization.
+
+### Changed
+
+- Cardputer Zero keyboard rendering now uses profile-driven key legends instead of hardcoded row text.
+- `scenario run --prepare` can now prepare the target Linux environment before selecting the device, setting scale, and connecting VNC.
+- MCP activity text now distinguishes short button presses from held button actions.
+
 ## [0.7.0] - 2026-04-25
 
 ### Added

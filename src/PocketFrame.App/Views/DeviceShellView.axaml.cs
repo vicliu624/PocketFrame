@@ -14,9 +14,9 @@ namespace PocketFrame.App.Views;
 
 public partial class DeviceShellView : UserControl
 {
-    private static readonly IBrush BackdropBrush = Brush.Parse("#06223a");
+    private static readonly IBrush BackdropBrush = Brush.Parse("#f8f8f8");
     private static readonly IBrush ShellShadowBrush = Brush.Parse("#505860");
-    private static readonly IBrush ShellBrush = Brush.Parse("#dfe1e3");
+    private static readonly IBrush ShellBrush = Brush.Parse("#d9dbdc");
     private static readonly IBrush ShellBorderBrush = Brush.Parse("#bcbfc2");
     private static readonly IBrush InsetBrush = Brush.Parse("#d2d4d6");
     private static readonly IBrush ScreenFrameBrush = Brush.Parse("#121418");
@@ -31,26 +31,24 @@ public partial class DeviceShellView : UserControl
     private static readonly IBrush AccentYellowBrush = Brush.Parse("#f5d954");
     private static readonly IBrush StickerWhiteBrush = Brush.Parse("#f8f8f8");
     private static readonly IBrush PowerRedBrush = Brush.Parse("#dd453f");
-    private const double DeviceWidth = 800;
-    private const double DeviceHeight = 520;
-    private const double ScreenFrameX = 180;
-    private const double ScreenFrameY = 26;
-    private const double ScreenFrameWidth = 374;
-    private const double ScreenFrameHeight = 202;
-    private const double RightPanelX = 592;
-    private const double RightPanelY = 24;
-    private const double RightPanelWidth = 166;
-    private const double RightPanelHeight = 226;
-    private const double KeyboardDeckX = 18;
-    private const double KeyboardDeckY = 240;
-    private const double KeyboardDeckWidth = 740;
-    private const double KeyboardDeckHeight = 242;
-    private const double KeyUnitWidth = 54;
-    private const double KeyGap = 8;
-    private const double KeyAreaHeight = 42;
-    private const double KeyboardRowStartX = 36;
-    private const double KeyboardRow1Y = 254;
-    private const double KeyboardRowGapY = 54;
+    private static readonly IBrush ShellGrooveBrush = Brush.Parse("#b7babc");
+    private static readonly IBrush PrintedGreyBrush = Brush.Parse("#c4c7c9");
+    private const double CardputerDeviceWidthMm = 85.0;
+    private const double CardputerDeviceHeightMm = 54.5;
+    private const double CardputerScreenWidthMm = 42.6;
+    private const double CardputerDipPerMm = 320.0 / CardputerScreenWidthMm;
+    private static readonly double DeviceWidth = Mm(CardputerDeviceWidthMm);
+    private static readonly double DeviceHeight = Mm(CardputerDeviceHeightMm);
+    private static readonly double KeyboardDeckX = Mm(2.0);
+    private static readonly double KeyboardDeckY = Mm(27.4);
+    private static readonly double KeyboardDeckWidth = Mm(81.0);
+    private static readonly double KeyboardDeckHeight = Mm(22.6);
+    private static readonly double KeyUnitWidth = Mm(5.6);
+    private static readonly double KeyGap = Mm(1.5);
+    private static readonly double KeyAreaHeight = Mm(4.4);
+    private static readonly double KeyboardRowStartX = Mm(3.0);
+    private static readonly double KeyboardRow1Y = Mm(30.2);
+    private static readonly double KeyboardRowGapY = Mm(5.0);
 
     public DeviceShellView()
     {
@@ -101,12 +99,20 @@ public partial class DeviceShellView : UserControl
         {
             canvas.Background = BackdropBrush;
             AddShellBody(canvas);
+            AddKeyboardDeck(canvas);
             AddLeftPanel(canvas);
             AddRightPanel(canvas);
+            AddShellAnnotations(canvas, profile);
             AddScreen(canvas, profile, viewModel);
-            AddKeyboardDeck(canvas);
-            AddKeyboardVisuals(canvas);
-            AddKeyboardHitAreas(canvas, viewModel);
+            if (profile.Keyboard.Keys.Count > 0)
+            {
+                AddProfileKeyboard(canvas, profile, viewModel);
+            }
+            else
+            {
+                AddKeyboardVisuals(canvas);
+                AddKeyboardHitAreas(canvas, viewModel);
+            }
             AddButtons(canvas, profile, viewModel);
         }
 
@@ -132,55 +138,89 @@ public partial class DeviceShellView : UserControl
         return requestedScale / Math.Max(renderScaling, 0.01);
     }
 
+    private static double Mm(double value) => value * CardputerDipPerMm;
+
     private static void AddShellBody(Canvas canvas)
     {
-        AddRoundedRect(canvas, 12, 16, DeviceWidth - 20, DeviceHeight - 28, 34, ShellShadowBrush);
-        AddRoundedRect(canvas, 0, 0, DeviceWidth - 20, DeviceHeight - 28, 34, ShellBrush);
-        AddRoundedRect(canvas, 6, 6, DeviceWidth - 32, 14, 7, Brushes.White);
-        AddRoundedRect(canvas, 8, 8, DeviceWidth - 36, DeviceHeight - 44, 30, ShellBrush);
-        AddRect(canvas, 12, 12, DeviceWidth - 44, DeviceHeight - 52, Brushes.Transparent, ShellBorderBrush, 1);
+        AddRoundedRect(canvas, Mm(1.6), Mm(1.8), DeviceWidth - Mm(1.0), DeviceHeight - Mm(1.0), Mm(3.2), Brush.Parse("#9ca2a4"));
+        AddRoundedRect(canvas, 0, 0, DeviceWidth - Mm(1.6), DeviceHeight - Mm(1.8), Mm(3.0), ShellBrush);
+        AddRect(canvas, Mm(1.6), Mm(0.9), DeviceWidth - Mm(8.0), Mm(0.18), Brush.Parse("#fbfbf8"));
+        AddRect(canvas, Mm(1.2), Mm(1.2), DeviceWidth - Mm(4.5), DeviceHeight - Mm(3.8), Brushes.Transparent, ShellBorderBrush, 1);
+        AddRect(canvas, Mm(39.0), 0, Mm(14.0), Mm(0.25), Brush.Parse("#151515"));
+        AddRect(canvas, 0, 0, Mm(2.0), Mm(2.0), BackdropBrush);
+        AddRect(canvas, Mm(18.2), 0, Mm(1.2), Mm(2.4), BackdropBrush);
+        AddRect(canvas, DeviceWidth - Mm(2.4), 0, Mm(2.4), Mm(2.0), BackdropBrush);
+        AddRect(canvas, 0, DeviceHeight - Mm(4.8), Mm(1.8), Mm(4.8), BackdropBrush);
+        AddRect(canvas, DeviceWidth - Mm(3.6), DeviceHeight - Mm(5.2), Mm(3.6), Mm(5.2), BackdropBrush);
     }
+
 
     private static void AddLeftPanel(Canvas canvas)
     {
-        AddRoundedRect(canvas, 24, 24, 144, 226, 20, InsetBrush);
-        AddText(canvas, "M5", 38, 40, 76, Brush.Parse("#c6c9cc"), FontWeight.Light);
-        AddRoundedRect(canvas, 24, 110, 132, 88, 10, StickerWhiteBrush);
-        AddCornerMarkers(canvas, 34, 120, 132, 76);
-        AddText(canvas, "CARDPUTER", 34, 120, 18, Brush.Parse("#4a4a4c"), FontWeight.Medium);
-        AddText(canvas, "ZERO", 36, 141, 42, Brush.Parse("#222224"), FontWeight.Bold);
-        AddRoundedRect(canvas, 34, 173, 62, 25, 2, LabelDarkBrush);
-        AddText(canvas, "Hold to", 38, 172, 15, Brushes.White, FontWeight.Bold);
-        AddText(canvas, "TALK", 38, 187, 15, Brushes.White, FontWeight.Bold);
-        AddText(canvas, "♩", 106, 178, 24, AccentOrangeBrush, FontWeight.Bold);
-        AddRoundedRect(canvas, 40, 202, 38, 16, 8, LabelDarkBrush);
-        AddRoundedRect(canvas, 106, 202, 16, 16, 8, Brush.Parse("#cacccd"));
-        AddCircle(canvas, 130, 196, 36, Brush.Parse("#d5d7d9"), ShellBorderBrush);
+        AddRoundedRect(canvas, Mm(1.6), Mm(2.2), Mm(17.0), Mm(24.2), Mm(2.0), InsetBrush);
+        AddText(canvas, "M5", Mm(3.0), Mm(3.2), Mm(7.6), PrintedGreyBrush, FontWeight.Light);
+        AddRect(canvas, Mm(18.5), Mm(2.5), Mm(1.2), Mm(23.5), ShellGrooveBrush);
+        AddRect(canvas, Mm(18.1), Mm(2.5), Mm(0.3), Mm(23.5), Brush.Parse("#f3f3ef"));
+        AddRoundedRect(canvas, Mm(3.0), Mm(11.9), Mm(13.5), Mm(9.5), Mm(1.0), StickerWhiteBrush);
+        AddCornerMarkers(canvas, Mm(3.4), Mm(12.3), Mm(12.7), Mm(8.7));
+        AddText(canvas, "CARDPUTER", Mm(4.0), Mm(12.8), Mm(1.55), Brush.Parse("#55585a"), FontWeight.Medium);
+        AddText(canvas, "ZERO", Mm(4.0), Mm(14.7), Mm(3.8), Brush.Parse("#202020"), FontWeight.Bold);
+        AddRoundedRect(canvas, Mm(3.2), Mm(21.2), Mm(8.5), Mm(3.4), Mm(0.2), LabelDarkBrush);
+        AddText(canvas, "Hold to", Mm(3.55), Mm(21.15), Mm(1.45), Brushes.White, FontWeight.Bold);
+        AddText(canvas, "TALK", Mm(3.55), Mm(22.55), Mm(1.55), Brushes.White, FontWeight.Bold);
+        AddText(canvas, "MIC", Mm(12.2), Mm(21.8), Mm(1.3), AccentOrangeBrush, FontWeight.Bold);
+        AddCircle(canvas, Mm(11.8), Mm(20.6), Mm(1.0), AccentOrangeBrush);
+        AddRect(canvas, Mm(12.0), Mm(21.4), Mm(0.5), Mm(1.4), AccentOrangeBrush);
+        AddRoundedRect(canvas, Mm(4.5), Mm(25.2), Mm(4.5), Mm(2.3), Mm(1.1), KeyBodyBrush);
+        AddRect(canvas, Mm(10.3), Mm(24.7), Mm(0.8), Mm(3.0), Brush.Parse("#202020"));
+        AddCircle(canvas, Mm(13.1), Mm(24.2), Mm(3.2), Brush.Parse("#cfd1d2"), ShellBorderBrush);
+        AddText(canvas, "/", Mm(14.1), Mm(24.55), Mm(1.8), ShellGrooveBrush, FontWeight.Bold);
     }
+
 
     private static void AddRightPanel(Canvas canvas)
     {
-        AddRoundedRect(canvas, RightPanelX, RightPanelY, RightPanelWidth, RightPanelHeight, 18, InsetBrush);
-        AddRoundedRect(canvas, 606, 52, 58, 34, 10, PowerRedBrush);
-        AddRoundedRect(canvas, 668, 58, 52, 26, 13, AccentOrangeBrush);
-        AddText(canvas, "ON", 696, 61, 14, Brushes.White, FontWeight.Bold);
-        AddText(canvas, "POWER", 606, 100, 25, LabelDarkBrush, FontWeight.Bold);
-        AddText(canvas, "SWITCH", 612, 125, 13, LabelDarkBrush, FontWeight.Bold);
-        AddCircle(canvas, 610, 150, 34, Brush.Parse("#c8cacc"), ShellBorderBrush);
-        AddText(canvas, "USB-C", 656, 131, 12, LabelDarkBrush, FontWeight.Bold);
-        AddText(canvas, "LINUX", 656, 145, 13, AccentBlueBrush, FontWeight.Bold);
-        AddText(canvas, "CARDPUTER ZERO", 628, 160, 10, AccentPinkBrush, FontWeight.Bold);
-        AddRoundedRect(canvas, 614, 185, 62, 22, 10, KeyBodyBrush);
-        AddRoundedRect(canvas, 684, 185, 62, 22, 10, KeyBodyBrush);
-        AddText(canvas, "HOME", 622, 213, 14, LabelDarkBrush, FontWeight.Bold);
-        AddText(canvas, "NEXT", 693, 213, 14, LabelDarkBrush, FontWeight.Bold);
+        AddRoundedRect(canvas, Mm(69.0), Mm(3.0), Mm(13.5), Mm(25.0), Mm(1.5), InsetBrush);
+        AddRect(canvas, Mm(65.2), Mm(2.5), Mm(1.2), Mm(23.5), ShellGrooveBrush);
+        AddRect(canvas, Mm(67.0), Mm(3.0), Mm(0.25), Mm(23.0), Brush.Parse("#f3f3ef"));
+        AddRect(canvas, Mm(82.0), Mm(3.1), Mm(0.25), Mm(21.0), ShellGrooveBrush);
+
+        AddRoundedRect(canvas, Mm(70.5), Mm(5.0), Mm(5.5), Mm(3.5), Mm(0.8), PowerRedBrush);
+        AddRoundedRect(canvas, Mm(70.85), Mm(5.25), Mm(4.3), Mm(0.45), Mm(0.2), Brush.Parse("#f06a64"));
+        AddRoundedRect(canvas, Mm(75.1), Mm(5.55), Mm(1.4), Mm(2.5), Mm(0.4), Brush.Parse("#b53030"));
+        AddRoundedRect(canvas, Mm(78.0), Mm(5.8), Mm(3.9), Mm(2.8), Mm(1.4), AccentOrangeBrush);
+        AddText(canvas, ">", Mm(78.7), Mm(6.05), Mm(1.15), Brushes.White, FontWeight.Bold);
+        AddText(canvas, "ON", Mm(80.2), Mm(6.1), Mm(1.15), Brushes.White, FontWeight.Bold);
+        AddText(canvas, "POWER", Mm(70.5), Mm(9.7), Mm(2.55), LabelDarkBrush, FontWeight.Bold);
+        AddText(canvas, "SWITCH", Mm(70.7), Mm(12.25), Mm(1.25), LabelDarkBrush, FontWeight.Bold);
+
+        AddCircle(canvas, Mm(70.2), Mm(15.2), Mm(3.3), Brush.Parse("#d1d3d4"), Brush.Parse("#7e8285"));
+        AddText(canvas, "USB-C", Mm(76.0), Mm(13.9), Mm(1.15), LabelDarkBrush, FontWeight.Bold);
+        AddText(canvas, "PORT", Mm(76.2), Mm(15.15), Mm(1.0), LabelDarkBrush, FontWeight.Bold);
+        AddText(canvas, "RIGHT", Mm(76.0), Mm(16.2), Mm(1.35), Brush.Parse("#31a56a"), FontWeight.Bold);
+        AddRect(canvas, Mm(80.4), Mm(15.0), Mm(1.8), Mm(3.2), Brushes.White, Brush.Parse("#5b5e60"), 2);
+        AddCircle(canvas, Mm(81.15), Mm(15.7), Mm(0.32), AccentOrangeBrush);
+        AddCircle(canvas, Mm(81.15), Mm(17.1), Mm(0.32), AccentOrangeBrush);
+        AddText(canvas, "5V", Mm(72.1), Mm(18.3), Mm(1.9), Brush.Parse("#ee4b28"), FontWeight.Bold);
+        AddText(canvas, "ONLY", Mm(73.0), Mm(20.3), Mm(0.85), LabelDarkBrush, FontWeight.Bold);
+        AddText(canvas, "CHG", Mm(77.3), Mm(18.55), Mm(1.45), LabelDarkBrush, FontWeight.Bold);
+        AddText(canvas, "<", Mm(81.2), Mm(18.55), Mm(1.65), AccentOrangeBrush, FontWeight.Bold);
+
+        AddRoundedRect(canvas, Mm(69.5), Mm(22.4), Mm(12.7), Mm(4.4), Mm(0.15), Brushes.Black);
+        AddRoundedRect(canvas, Mm(71.5), Mm(23.15), Mm(5.8), Mm(0.9), Mm(0.45), Brushes.White);
+        AddCircle(canvas, Mm(78.1), Mm(23.1), Mm(0.7), Brushes.White);
+        AddText(canvas, "HOME", Mm(70.4), Mm(24.6), Mm(1.55), Brushes.White, FontWeight.Bold);
+        AddText(canvas, "NEXT", Mm(76.7), Mm(24.6), Mm(1.55), Brushes.White, FontWeight.Bold);
+        AddRoundedRect(canvas, Mm(75.8), Mm(27.5), Mm(4.7), Mm(2.3), Mm(1.1), KeyBodyBrush);
     }
+
 
     private static void AddScreen(Canvas canvas, DeviceProfile profile, DeviceShellViewModel viewModel)
     {
-        AddRoundedRect(canvas, ScreenFrameX, ScreenFrameY, ScreenFrameWidth, ScreenFrameHeight, 18, ScreenFrameBrush);
-        AddRoundedRect(canvas, ScreenFrameX + 9, ScreenFrameY + 11, ScreenFrameWidth - 18, ScreenFrameHeight - 20, 12, ScreenLipBrush);
-        AddRect(canvas, profile.ScreenX - 6, profile.ScreenY - 6, profile.ScreenWidth + 12, profile.ScreenHeight + 12, Brushes.Black);
+        AddRect(canvas, Mm(18.5), Mm(2.5), Mm(1.2), Mm(23.5), ShellGrooveBrush);
+        AddRect(canvas, Mm(65.2), Mm(2.5), Mm(1.2), Mm(23.5), ShellGrooveBrush);
+        AddRoundedRect(canvas, profile.ScreenX - Mm(0.8), profile.ScreenY - Mm(0.8), profile.ScreenWidth + Mm(1.6), profile.ScreenHeight + Mm(1.6), Mm(0.8), Brush.Parse("#0a0b0d"));
+        AddRoundedRect(canvas, profile.ScreenX - Mm(0.25), profile.ScreenY - Mm(0.25), profile.ScreenWidth + Mm(0.5), profile.ScreenHeight + Mm(0.5), Mm(0.45), ScreenLipBrush);
 
         var screen = new ScreenViewport
         {
@@ -193,12 +233,126 @@ public partial class DeviceShellView : UserControl
         canvas.Children.Add(screen);
     }
 
+
     private static void AddKeyboardDeck(Canvas canvas)
     {
-        AddRoundedRect(canvas, KeyboardDeckX, KeyboardDeckY, KeyboardDeckWidth, KeyboardDeckHeight, 18, Brush.Parse("#e6e8ea"));
-        AddRect(canvas, 36, 306, KeyboardDeckWidth - 36, 2, Brush.Parse("#cdcfd1"));
-        AddRect(canvas, 36, 360, KeyboardDeckWidth - 36, 2, Brush.Parse("#cdcfd1"));
-        AddRect(canvas, 36, 414, KeyboardDeckWidth - 36, 2, Brush.Parse("#cdcfd1"));
+        AddRoundedRect(canvas, KeyboardDeckX, KeyboardDeckY, KeyboardDeckWidth, KeyboardDeckHeight, Mm(1.8), Brush.Parse("#e6e8ea"));
+        AddRect(canvas, Mm(3.0), Mm(29.6), Mm(79.0), Mm(3.6), Brush.Parse("#eeeeed"));
+        AddRect(canvas, Mm(3.0), Mm(34.6), Mm(79.0), Mm(3.6), Brush.Parse("#e2e2e0"));
+        AddRect(canvas, Mm(3.0), Mm(39.6), Mm(79.0), Mm(3.6), Brush.Parse("#eeeeed"));
+        AddRect(canvas, Mm(3.0), Mm(44.6), Mm(79.0), Mm(3.6), Brush.Parse("#e2e2e0"));
+        AddRect(canvas, Mm(3.0), Mm(33.2), Mm(79.0), 1, Brush.Parse("#c9cbcc"));
+        AddRect(canvas, Mm(3.0), Mm(38.2), Mm(79.0), 1, Brush.Parse("#c9cbcc"));
+        AddRect(canvas, Mm(3.0), Mm(43.2), Mm(79.0), 1, Brush.Parse("#c9cbcc"));
+    }
+
+    private static void AddProfileKeyboard(Canvas canvas, DeviceProfile profile, DeviceShellViewModel viewModel)
+    {
+        foreach (var key in profile.Keyboard.Keys)
+        {
+            var fill = string.IsNullOrWhiteSpace(key.Fill) ? KeyBodyBrush : Brush.Parse(key.Fill);
+            if (key.Role.Equals("layer", StringComparison.OrdinalIgnoreCase))
+            {
+                AddRoundedRect(canvas, key.X, key.Y + Mm(0.15), key.Width, Mm(2.2), 0, fill);
+                var layerTextBrush = key.Label.Equals("ctrl", StringComparison.OrdinalIgnoreCase) || key.Label.Equals("alt", StringComparison.OrdinalIgnoreCase)
+                    ? LabelDarkBrush
+                    : Brushes.White;
+                AddText(canvas, key.Label, key.X + Mm(0.45), key.Y + Mm(0.15), Mm(1.85), layerTextBrush, FontWeight.Bold);
+            }
+            else
+            {
+                var labelBrush = key.Id.Equals("key-ok", StringComparison.OrdinalIgnoreCase)
+                    ? Brush.Parse("#159253")
+                    : LabelDarkBrush;
+                var labelSize = key.Id.Equals("key-del", StringComparison.OrdinalIgnoreCase)
+                    ? Mm(3.2)
+                    : key.Label.Length > 1 ? Mm(1.45) : Mm(2.55);
+                var labelX = key.Id.Equals("key-del", StringComparison.OrdinalIgnoreCase)
+                    ? key.X + key.Width * 0.26
+                    : key.X + key.Width * 0.36;
+                AddText(canvas, key.Label, labelX, key.Y - Mm(0.08), labelSize, labelBrush, FontWeight.Bold);
+                if (key.Id.Equals("key-del", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddText(canvas, key.Label, labelX - Mm(0.08), key.Y - Mm(0.08), labelSize, labelBrush, FontWeight.Bold);
+                }
+            }
+
+            foreach (var legend in key.Legends)
+            {
+                AddKeyLegend(canvas, key, legend);
+            }
+
+            var buttonX = key.X + key.Width * 0.08;
+            var buttonY = key.Y + key.Height * 0.55;
+            var buttonWidth = key.Width * 0.84;
+            var buttonHeight = key.Height * 0.38;
+            AddRoundedRect(canvas, buttonX + Mm(0.18), buttonY + Mm(0.25), buttonWidth, buttonHeight, buttonHeight / 2, KeyShadowBrush);
+            AddRoundedRect(canvas, buttonX, buttonY, buttonWidth, buttonHeight, buttonHeight / 2, KeyBodyBrush);
+            AddRoundedRect(canvas, buttonX + Mm(0.35), buttonY + Mm(0.25), buttonWidth - Mm(0.7), Mm(0.22), Mm(0.1), Brush.Parse("#3a3d40"));
+
+            var button = new ButtonProfile
+            {
+                Id = key.Id,
+                Label = key.Label,
+                KeyCode = key.KeyCode,
+                FnKeyCode = key.FnKeyCode,
+                OrangeKeyCode = key.FnKeyCode,
+                SymKeyCode = key.SymKeyCode,
+                BlueKeyCode = key.SymKeyCode,
+                ShiftKeyCode = key.ShiftKeyCode,
+                Role = key.Role,
+                X = key.X,
+                Y = key.Y,
+                Width = key.Width,
+                Height = key.Height
+            };
+            var hitArea = new Border
+            {
+                Width = key.Width,
+                Height = key.Height,
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            AttachButtonPressHandlers(canvas, hitArea, button, viewModel, 10);
+            ToolTip.SetTip(hitArea, $"{key.Id}: {key.KeyCode} fn:{key.FnKeyCode} sym:{key.SymKeyCode} shift:{key.ShiftKeyCode}");
+            Canvas.SetLeft(hitArea, key.X);
+            Canvas.SetTop(hitArea, key.Y);
+            canvas.Children.Add(hitArea);
+        }
+    }
+
+    private static void AddKeyLegend(Canvas canvas, KeyProfile key, KeyLegendProfile legend)
+    {
+        var (x, y) = legend.Position switch
+        {
+            "topLeft" => (key.X + Mm(0.15), key.Y + Mm(0.12)),
+            "topCenter" => (key.X + key.Width / 2 - legend.Text.Length * legend.FontSize * 0.22, key.Y + Mm(0.05)),
+            "bottomLeft" => (key.X + Mm(0.15), key.Y + key.Height - legend.FontSize - Mm(0.25)),
+            "bottomRight" => (key.X + key.Width - Math.Min(key.Width - Mm(0.3), legend.Text.Length * legend.FontSize * 0.52 + Mm(0.4)), key.Y + key.Height - legend.FontSize - Mm(0.25)),
+            "center" => (key.X + key.Width / 2 - legend.Text.Length * legend.FontSize * 0.24, key.Y + key.Height / 2 - legend.FontSize / 2),
+            _ => (key.X + key.Width - Math.Min(key.Width - Mm(0.3), legend.Text.Length * legend.FontSize * 0.52 + Mm(0.4)), key.Y + Mm(0.12))
+        };
+        AddText(canvas, legend.Text, x, y, legend.FontSize, Brush.Parse(legend.Color), ParseWeight(legend.Weight));
+    }
+
+    private static void AddShellAnnotations(Canvas canvas, DeviceProfile profile)
+    {
+        foreach (var annotation in profile.ShellAnnotations)
+        {
+            var fill = Brush.Parse(annotation.Fill);
+            var foreground = Brush.Parse(annotation.Foreground);
+            var stroke = string.IsNullOrWhiteSpace(annotation.Stroke) ? null : Brush.Parse(annotation.Stroke);
+            if (annotation.Kind.Equals("badge", StringComparison.OrdinalIgnoreCase))
+            {
+                AddRoundedRect(canvas, annotation.X, annotation.Y, annotation.Width, annotation.Height, annotation.Radius, fill);
+            }
+            else if (annotation.Kind.Equals("outline", StringComparison.OrdinalIgnoreCase))
+            {
+                AddRect(canvas, annotation.X, annotation.Y, annotation.Width, annotation.Height, Brushes.Transparent, stroke ?? fill, 2);
+            }
+
+            AddText(canvas, annotation.Text, annotation.X + 5, annotation.Y + 4, annotation.FontSize, foreground, ParseWeight(annotation.Weight));
+        }
     }
 
     private static void AddKeyboardVisuals(Canvas canvas)
@@ -446,6 +600,10 @@ public partial class DeviceShellView : UserControl
     {
         Rectangle? feedback = null;
         var isStickyLongPress = false;
+        var isPressed = false;
+        var isHoldLongPress = false;
+        System.Threading.CancellationTokenSource? holdCancellation = null;
+        var supportsHoldLongPress = !string.IsNullOrWhiteSpace(button.LongPressKeyCode);
 
         hitArea.PointerPressed += async (_, args) =>
         {
@@ -469,22 +627,79 @@ public partial class DeviceShellView : UserControl
             }
 
             feedback = ShowPressFeedback(canvas, button, radius);
-            await viewModel.SendButtonAsync(button);
-            _ = RemoveFeedbackLater(canvas, feedback, TimeSpan.FromMilliseconds(140));
+            isPressed = true;
+            isHoldLongPress = false;
+            if (!supportsHoldLongPress)
+            {
+                await viewModel.SendButtonAsync(button);
+                _ = RemoveFeedbackLater(canvas, feedback, TimeSpan.FromMilliseconds(140));
+                return;
+            }
+
+            holdCancellation?.Cancel();
+            holdCancellation = new System.Threading.CancellationTokenSource();
+            var token = holdCancellation.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(420), token);
+                    if (token.IsCancellationRequested || !isPressed)
+                    {
+                        return;
+                    }
+
+                    isHoldLongPress = true;
+                    await viewModel.BeginButtonPressAsync(button);
+                }
+                catch (TaskCanceledException)
+                {
+                }
+            }, token);
         };
 
-        hitArea.PointerReleased += (_, args) =>
+        hitArea.PointerReleased += async (_, args) =>
         {
             args.Handled = true;
+            isPressed = false;
+            holdCancellation?.Cancel();
+            holdCancellation?.Dispose();
+            holdCancellation = null;
+
             if (!isStickyLongPress)
             {
+                if (supportsHoldLongPress)
+                {
+                    if (isHoldLongPress)
+                    {
+                        await viewModel.EndButtonPressAsync(button);
+                    }
+                    else
+                    {
+                        await viewModel.SendButtonAsync(button);
+                        _ = RemoveFeedbackLater(canvas, feedback, TimeSpan.FromMilliseconds(140));
+                        return;
+                    }
+                }
+
                 RemoveFeedback(canvas, feedback);
                 feedback = null;
+                isHoldLongPress = false;
             }
         };
 
-        hitArea.PointerCaptureLost += (_, _) =>
+        hitArea.PointerCaptureLost += async (_, _) =>
         {
+            isPressed = false;
+            holdCancellation?.Cancel();
+            holdCancellation?.Dispose();
+            holdCancellation = null;
+            if (isHoldLongPress)
+            {
+                await viewModel.EndButtonPressAsync(button);
+                isHoldLongPress = false;
+            }
+
             if (!isStickyLongPress)
             {
                 RemoveFeedback(canvas, feedback);
@@ -557,6 +772,12 @@ public partial class DeviceShellView : UserControl
         Canvas.SetTop(block, y);
         canvas.Children.Add(block);
     }
+
+    private static FontWeight ParseWeight(string weight) =>
+        weight.Equals("Normal", StringComparison.OrdinalIgnoreCase) ? FontWeight.Normal :
+        weight.Equals("Medium", StringComparison.OrdinalIgnoreCase) ? FontWeight.Medium :
+        weight.Equals("Light", StringComparison.OrdinalIgnoreCase) ? FontWeight.Light :
+        FontWeight.Bold;
 
     private static void AddCornerMarkers(Canvas canvas, double x, double y, double width, double height)
     {

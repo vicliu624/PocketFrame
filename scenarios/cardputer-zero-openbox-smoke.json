@@ -6,6 +6,24 @@
     "port": 5910,
     "password": ""
   },
+  "environment": {
+    "profileId": "wsl-ubuntu-24.04",
+    "prepare": false,
+    "startVnc": true,
+    "restartVnc": false,
+    "vncDisplay": ":10",
+    "vncGeometry": "320x170",
+    "vncDepth": 24,
+    "preCommands": [
+      {
+        "id": "ensure-vnc-command",
+        "command": "command -v vncserver",
+        "timeoutMs": 5000,
+        "continueOnFailure": true
+      }
+    ],
+    "postCommands": []
+  },
   "scale": 1,
   "captures": {
     "outputDir": "runs/cardputer-zero-openbox"

@@ -21,6 +21,7 @@ public sealed class MarkdownReportWriter
         builder.AppendLine();
         builder.AppendLine($"- Result: `{(report.Success ? "PASS" : "FAIL")}`");
         builder.AppendLine($"- Actions: `{report.ActionResults.Count}`");
+        builder.AppendLine($"- Environment commands: `{report.EnvironmentCommands.Count}`");
         builder.AppendLine($"- Passed assertions: `{report.AssertionResults.Count(assertion => assertion.Passed)}`");
         builder.AppendLine($"- Failed assertions: `{report.AssertionResults.Count(assertion => !assertion.Passed)}`");
         builder.AppendLine($"- Screenshots: `{report.Screenshots.Count}`");
@@ -32,7 +33,9 @@ public sealed class MarkdownReportWriter
         builder.AppendLine($"- Device: `{report.Scenario?.DeviceId ?? report.State?.DeviceId ?? "unknown"}`");
         builder.AppendLine($"- VNC: `{report.Scenario?.Connection.Host ?? "unknown"}:{report.Scenario?.Connection.Port.ToString() ?? "unknown"}`");
         builder.AppendLine($"- Run directory: `{report.RunDirectory}`");
+        builder.AppendLine($"- Environment: `{report.Scenario?.Environment.ProfileId ?? "none"}`");
         builder.AppendLine();
+        AppendEnvironmentCommands(builder, report);
         builder.AppendLine("## Current State");
         builder.AppendLine();
         builder.AppendLine($"- Connected: `{report.State?.Connected.ToString() ?? "unknown"}`");
@@ -138,6 +141,28 @@ public sealed class MarkdownReportWriter
             AppendImage(builder, "Actual", assertion.ActualPath);
             AppendImage(builder, "Diff", assertion.DiffPath);
         }
+    }
+
+    private static void AppendEnvironmentCommands(StringBuilder builder, AutomationRunReport report)
+    {
+        builder.AppendLine("## Environment Commands");
+        builder.AppendLine();
+        if (report.EnvironmentCommands.Count == 0)
+        {
+            builder.AppendLine("No target environment commands were recorded.");
+            builder.AppendLine();
+            return;
+        }
+
+        builder.AppendLine("| Step | Profile | Exit | Duration | Working Directory | Command |");
+        builder.AppendLine("| ---: | --- | ---: | ---: | --- | --- |");
+        for (var index = 0; index < report.EnvironmentCommands.Count; index++)
+        {
+            var command = report.EnvironmentCommands[index];
+            builder.AppendLine($"| {index + 1} | `{Escape(command.ProfileId)}` | `{command.ExitCode}` | `{command.DurationMs}` | `{Escape(command.WorkingDirectory)}` | `{Escape(command.Command)}` |");
+        }
+
+        builder.AppendLine();
     }
 
     private static void AppendImage(StringBuilder builder, string label, string path)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using PocketFrame.Automation;
+using PocketFrame.Environments;
 
 var client = new AutomationPipeClient();
 var server = new PocketFrameMcpServer(client);
@@ -92,19 +93,35 @@ internal sealed class PocketFrameMcpServer
         tools = new object[]
         {
             Tool("pocketframe_get_state", "Get the current PocketFrame device, VNC, and framebuffer state.", new JsonObject()),
+            Tool("pocketframe_get_input_model", "Get AI-readable physical buttons, keyboard keys, layers, and key actions for the selected device.", new JsonObject()),
+            Tool("pocketframe_get_keyboard_state", "Get currently latched keyboard layers such as fn, sym, shift, ctrl, or alt.", new JsonObject()),
             Tool("pocketframe_get_profiles", "List available PocketFrame device profiles.", new JsonObject()),
             Tool("pocketframe_get_connections", "List saved VNC connection profiles without exposing passwords.", new JsonObject()),
             Tool("pocketframe_select_device", "Select a device profile by id before connecting or running automation.", Properties(("deviceId", "string", "Device profile id.")), ["deviceId"]),
             Tool("pocketframe_set_scale", "Set the simulator display scale.", Properties(("scale", "number", "Display scale.")), ["scale"]),
             Tool("pocketframe_connect_vnc", "Connect VNC using a saved profileId or explicit host, port, password, deviceId, and scale.", Properties(("profileId", "string", "Optional saved connection id or name."), ("host", "string", "VNC host when profileId is not used."), ("port", "integer", "VNC port when profileId is not used."), ("password", "string", "Optional VNC password."), ("deviceId", "string", "Optional device profile id."), ("scale", "number", "Optional display scale."))),
             Tool("pocketframe_disconnect_vnc", "Disconnect the current VNC session.", new JsonObject()),
+            Tool("pocketframe_environment_profiles", "List configured target environments such as WSL, local shell, or future remote targets.", new JsonObject()),
+            Tool("pocketframe_environment_get_state", "Inspect target environment availability and VNC lifecycle state.", Properties(("profileId", "string", "Optional environment profile id."))),
+            Tool("pocketframe_environment_exec", "Execute a command inside the target environment. The command, stdout, stderr, exit code, timeout, and duration are returned and traced.", Properties(("profileId", "string", "Optional environment profile id."), ("command", "string", "Command to execute."), ("workingDirectory", "string", "Optional environment working directory."), ("timeoutMs", "integer", "Optional timeout in milliseconds."), ("stdin", "string", "Optional stdin content.")), ["command"]),
+            Tool("pocketframe_environment_start_vnc", "Start the target environment VNC server using profile defaults or explicit display, geometry, and depth.", Properties(("profileId", "string", "Optional environment profile id."), ("display", "string", "Optional VNC display such as :10."), ("geometry", "string", "Optional VNC geometry such as 320x170."), ("depth", "integer", "Optional color depth."), ("timeoutMs", "integer", "Optional timeout in milliseconds."))),
+            Tool("pocketframe_environment_stop_vnc", "Stop the target environment VNC server.", Properties(("profileId", "string", "Optional environment profile id."), ("display", "string", "Optional VNC display such as :10."), ("timeoutMs", "integer", "Optional timeout in milliseconds."))),
+            Tool("pocketframe_environment_restart_vnc", "Restart the target environment VNC server with a known geometry.", Properties(("profileId", "string", "Optional environment profile id."), ("display", "string", "Optional VNC display such as :10."), ("geometry", "string", "Optional VNC geometry such as 320x170."), ("depth", "integer", "Optional color depth."), ("timeoutMs", "integer", "Optional timeout in milliseconds."))),
+            Tool("pocketframe_environment_processes", "List target environment processes with an optional filter.", Properties(("profileId", "string", "Optional environment profile id."), ("filter", "string", "Optional process filter."))),
+            Tool("pocketframe_environment_kill_process", "Send a signal to a target environment process by pid or match pattern.", Properties(("profileId", "string", "Optional environment profile id."), ("pid", "integer", "Optional process id."), ("match", "string", "Optional pkill -f pattern."), ("signal", "string", "Signal name such as TERM or KILL."), ("timeoutMs", "integer", "Optional timeout in milliseconds."))),
+            Tool("pocketframe_environment_read_file", "Read a text file from the target environment.", Properties(("profileId", "string", "Optional environment profile id."), ("path", "string", "Target environment file path."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["path"]),
+            Tool("pocketframe_environment_write_file", "Write a text file into the target environment.", Properties(("profileId", "string", "Optional environment profile id."), ("path", "string", "Target environment file path."), ("content", "string", "Text content to write."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["path", "content"]),
+            Tool("pocketframe_environment_install_packages", "Install apt packages in the target environment without forcing the AI to hand-roll package commands.", Properties(("profileId", "string", "Optional environment profile id."), ("packages", "array", "Package names."), ("update", "boolean", "Run apt-get update first."), ("sudo", "boolean", "Use sudo. Defaults to true."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["packages"]),
+            Tool("pocketframe_environment_launch", "Launch a target app in the environment as a background process and return pid plus log path.", Properties(("profileId", "string", "Optional environment profile id."), ("command", "string", "Command to launch."), ("workingDirectory", "string", "Optional working directory."), ("logPath", "string", "Optional log path."), ("timeoutMs", "integer", "Optional launch timeout.")), ["command"]),
+            Tool("pocketframe_environment_tail_file", "Read the last lines of a target environment log file.", Properties(("profileId", "string", "Optional environment profile id."), ("path", "string", "Target environment file path."), ("lines", "integer", "Number of lines."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["path"]),
             Tool("pocketframe_frame_hash", "Return the current framebuffer SHA-256 hash and frame index.", new JsonObject()),
             Tool("pocketframe_capture_screen", "Capture only the remote VNC screen area to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_capture_device", "Capture the rendered device shell and screen to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_type_text", "Type text into the active VNC session. Use newline characters for Enter.", Properties(("text", "string", "Text to type.")), ["text"]),
             Tool("pocketframe_press_key", "Press a VNC key or key chord such as Enter, Escape, Ctrl+C, Up, Down, Left, Right.", Properties(("key", "string", "Key name or key chord.")), ["key"]),
-            Tool("pocketframe_press_button", "Press a semantic device or virtual keyboard button such as ok, back, fn, blue, keyboard-q, keyboard-z.", Properties(("buttonId", "string", "Device button id or virtual keyboard id.")), ["buttonId"]),
+            Tool("pocketframe_press_button", "Press or hold a semantic device or virtual keyboard button such as ok, talk, next-home, fn, blue, keyboard-q, keyboard-z.", Properties(("buttonId", "string", "Device button id or virtual keyboard id."), ("durationMs", "integer", "Optional hold duration in milliseconds. Omit or use 0 for a short press.")), ["buttonId"]),
             Tool("pocketframe_click_screen", "Click a coordinate in the device screen/VNC coordinate space.", Properties(("x", "integer", "Screen X coordinate."), ("y", "integer", "Screen Y coordinate."), ("button", "string", "Pointer button: left, middle, or right.")), ["x", "y"]),
+            Tool("pocketframe_wait", "Wait for a fixed duration without requiring framebuffer changes or stability.", Properties(("durationMs", "integer", "Wait duration in milliseconds.")), ["durationMs"]),
             Tool("pocketframe_wait_frame_change", "Wait until the VNC framebuffer frame index changes.", Properties(("afterFrame", "integer", "Optional frame index to wait after."), ("timeoutMs", "integer", "Timeout in milliseconds."))),
             Tool("pocketframe_wait_stable_frame", "Wait until the framebuffer stops changing for a quiet window.", Properties(("quietMs", "integer", "Required quiet window in milliseconds. Defaults to 300."), ("timeoutMs", "integer", "Timeout in milliseconds. Defaults to 5000."))),
             Tool("pocketframe_action_trace", "Read, save, or clear the in-app automation action trace.", Properties(("limit", "integer", "Optional maximum number of entries."), ("outputPath", "string", "Optional JSON output path."), ("clear", "boolean", "Clear the trace after reading."))),
@@ -119,19 +136,35 @@ internal sealed class PocketFrameMcpServer
         var response = name switch
         {
             "pocketframe_get_state" => await automationClient.SendAsync("get_state"),
+            "pocketframe_get_input_model" => await automationClient.SendAsync("get_input_model"),
+            "pocketframe_get_keyboard_state" => await automationClient.SendAsync("get_keyboard_state"),
             "pocketframe_get_profiles" => await automationClient.SendAsync("get_profiles"),
             "pocketframe_get_connections" => await automationClient.SendAsync("get_connections"),
             "pocketframe_select_device" => await automationClient.SendAsync("select_device", ToParams<SelectDeviceParams>(arguments)),
             "pocketframe_set_scale" => await automationClient.SendAsync("set_scale", ToParams<SetScaleParams>(arguments)),
             "pocketframe_connect_vnc" => await automationClient.SendAsync("connect_vnc", ToParams<ConnectVncParams>(arguments), timeoutMs: 30000),
             "pocketframe_disconnect_vnc" => await automationClient.SendAsync("disconnect_vnc"),
+            "pocketframe_environment_profiles" => await automationClient.SendAsync("environment_profiles"),
+            "pocketframe_environment_get_state" => await automationClient.SendAsync("environment_get_state", ToParams<EnvironmentCommandParams>(arguments)),
+            "pocketframe_environment_exec" => await automationClient.SendAsync("environment_exec", ToParams<EnvironmentCommandParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_start_vnc" => await automationClient.SendAsync("environment_start_vnc", ToParams<EnvironmentVncParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_stop_vnc" => await automationClient.SendAsync("environment_stop_vnc", ToParams<EnvironmentVncParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_restart_vnc" => await automationClient.SendAsync("environment_restart_vnc", ToParams<EnvironmentVncParams>(arguments), timeoutMs: ReadTimeout(arguments, 60000)),
+            "pocketframe_environment_processes" => await automationClient.SendAsync("environment_processes", ToParams<EnvironmentProcessQueryParams>(arguments)),
+            "pocketframe_environment_kill_process" => await automationClient.SendAsync("environment_kill_process", ToParams<EnvironmentKillProcessParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_read_file" => await automationClient.SendAsync("environment_read_file", ToParams<EnvironmentFileParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_write_file" => await automationClient.SendAsync("environment_write_file", ToParams<EnvironmentFileParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_install_packages" => await automationClient.SendAsync("environment_install_packages", ToParams<EnvironmentInstallPackagesParams>(arguments), timeoutMs: ReadTimeout(arguments, 120000)),
+            "pocketframe_environment_launch" => await automationClient.SendAsync("environment_launch", ToParams<EnvironmentLaunchParams>(arguments), timeoutMs: ReadTimeout(arguments, 10000)),
+            "pocketframe_environment_tail_file" => await automationClient.SendAsync("environment_tail_file", ToParams<EnvironmentTailFileParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
             "pocketframe_frame_hash" => await automationClient.SendAsync("frame_hash"),
             "pocketframe_capture_screen" => await automationClient.SendAsync("capture_screen", ToCaptureParams(arguments)),
             "pocketframe_capture_device" => await automationClient.SendAsync("capture_device", ToCaptureParams(arguments)),
             "pocketframe_type_text" => await automationClient.SendAsync("type_text", ToParams<TextInputParams>(arguments)),
             "pocketframe_press_key" => await automationClient.SendAsync("press_key", ToParams<KeyPressParams>(arguments)),
-            "pocketframe_press_button" => await automationClient.SendAsync("press_button", ToParams<ButtonPressParams>(arguments)),
+            "pocketframe_press_button" => await automationClient.SendAsync("press_button", ToParams<ButtonPressParams>(arguments), timeoutMs: ReadTimeout(arguments, 61000)),
             "pocketframe_click_screen" => await automationClient.SendAsync("click_screen", ToParams<ClickScreenParams>(arguments)),
+            "pocketframe_wait" => await automationClient.SendAsync("wait", ToParams<WaitParams>(arguments), timeoutMs: ReadTimeout(arguments, 601000)),
             "pocketframe_wait_frame_change" => await automationClient.SendAsync("wait_frame_change", ToParams<WaitFrameChangeParams>(arguments), timeoutMs: ReadTimeout(arguments)),
             "pocketframe_wait_stable_frame" => await automationClient.SendAsync("wait_stable_frame", ToParams<WaitStableFrameParams>(arguments), timeoutMs: ReadTimeout(arguments)),
             "pocketframe_action_trace" => await automationClient.SendAsync("action_trace", ToParams<ActionTraceParams>(arguments)),
@@ -169,7 +202,7 @@ internal sealed class PocketFrameMcpServer
         return arguments.Deserialize<T>(AutomationJson.Options) ?? Activator.CreateInstance<T>();
     }
 
-    private static int ReadTimeout(JsonElement arguments)
+    private static int ReadTimeout(JsonElement arguments, int fallback = 10000)
     {
         if (arguments.ValueKind == JsonValueKind.Object &&
             arguments.TryGetProperty("timeoutMs", out var timeout) &&
@@ -178,7 +211,7 @@ internal sealed class PocketFrameMcpServer
             return Math.Max(timeoutMs + 1000, 2000);
         }
 
-        return 10000;
+        return fallback;
     }
 
     private static object Tool(string name, string description, JsonObject properties, string[]? required = null) => new
