@@ -50,6 +50,9 @@ jobs:
       - name: Build
         run: dotnet build PocketFrame.sln --configuration Release --no-restore
 
+      - name: Test
+        run: dotnet test PocketFrame.sln --configuration Release --no-build
+
       - name: Publish PocketFrame.App
         run: >
           dotnet publish src/PocketFrame.App/PocketFrame.App.csproj

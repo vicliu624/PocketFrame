@@ -5,11 +5,11 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using PocketFrame.App.Models;
 using PocketFrame.App.Services;
 using PocketFrame.App.ViewModels;
 using PocketFrame.App.Vnc;
 using PocketFrame.Automation;
+using PocketFrame.DeviceProfiles;
 
 namespace PocketFrame.App.Automation;
 

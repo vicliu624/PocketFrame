@@ -7,6 +7,7 @@ using PocketFrame.App.Models;
 using PocketFrame.App.Services;
 using PocketFrame.App.Utils;
 using PocketFrame.App.Vnc;
+using PocketFrame.DeviceProfiles;
 
 namespace PocketFrame.App.ViewModels;
 

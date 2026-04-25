@@ -7,8 +7,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using PocketFrame.App.Models;
 using PocketFrame.App.ViewModels;
+using PocketFrame.DeviceProfiles;
 
 namespace PocketFrame.App.Views;
 

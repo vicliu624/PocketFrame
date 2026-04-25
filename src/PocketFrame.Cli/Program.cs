@@ -1,5 +1,8 @@
 using System.Text.Json;
 using PocketFrame.Automation;
+using PocketFrame.DeviceProfiles;
+using PocketFrame.Reports;
+using PocketFrame.Runner;
 using PocketFrame.Scenarios;
 
 return await PocketFrameCli.RunAsync(args);
@@ -23,6 +26,7 @@ internal static class PocketFrameCli
                 "scenario" => await ScenarioAsync(args.Skip(1).ToArray()),
                 "capture" => await CaptureAsync(args.Skip(1).ToArray()),
                 "trace" => await TraceAsync(args.Skip(1).ToArray()),
+                "report" => await ReportAsync(args.Skip(1).ToArray()),
                 _ => Fail($"Unknown command: {args[0]}")
             };
         }
@@ -33,68 +37,91 @@ internal static class PocketFrameCli
         }
     }
 
-    private static Task<int> DevicesAsync(string[] args)
+    private static async Task<int> DevicesAsync(string[] args)
     {
         if (args is not ["list"])
         {
-            return Task.FromResult(Fail("Usage: pocketframe devices list"));
+            return Fail("Usage: pocketframe devices list");
         }
 
-        foreach (var profile in FindProfileFiles().Select(ReadProfileSummary))
+        var results = await new DeviceProfileLoader().LoadAsync(DefaultDevicesRoot());
+        foreach (var profile in results.Where(result => result.IsValid).Select(result => result.Profile!))
         {
-            Console.WriteLine($"{profile.Id}\t{profile.Name}\t{profile.ScreenWidth}x{profile.ScreenHeight}\t{profile.Path}");
+            Console.WriteLine($"{profile.Id}\t{profile.Name}\t{profile.ScreenWidth}x{profile.ScreenHeight}\t{profile.ShellAssetPath}");
         }
 
-        return Task.FromResult(0);
+        return 0;
     }
 
-    private static Task<int> ProfilesAsync(string[] args)
+    private static async Task<int> ProfilesAsync(string[] args)
     {
         if (args.Length == 0 || args[0] != "validate")
         {
-            return Task.FromResult(Fail("Usage: pocketframe profiles validate [profile.json|devices-root]"));
+            return Fail("Usage: pocketframe profiles validate [profile.json|devices-root]");
         }
 
         var target = args.Length > 1 ? args[1] : DefaultDevicesRoot();
-        var files = File.Exists(target) ? [Path.GetFullPath(target)] : Directory.EnumerateFiles(target, "profile.json", SearchOption.AllDirectories).ToArray();
+        var loader = new DeviceProfileLoader();
+        var results = File.Exists(target)
+            ? [await loader.LoadFileAsync(Path.GetFullPath(target))]
+            : await loader.LoadAsync(Path.GetFullPath(target));
+
         var failed = 0;
-        foreach (var file in files)
+        foreach (var result in results)
         {
-            var result = ValidateProfile(file);
-            if (result.Count == 0)
+            if (result.IsValid)
             {
-                Console.WriteLine($"ok: {file}");
+                Console.WriteLine($"ok: {result.Path}");
+                continue;
             }
-            else
+
+            failed++;
+            Console.WriteLine($"fail: {result.Path}");
+            foreach (var error in result.Errors)
             {
-                failed++;
-                Console.WriteLine($"fail: {file}");
-                foreach (var error in result)
-                {
-                    Console.WriteLine($"  - {error}");
-                }
+                Console.WriteLine($"  - {error}");
             }
         }
 
-        return Task.FromResult(failed == 0 ? 0 : 1);
+        return failed == 0 ? 0 : 1;
     }
 
     private static async Task<int> ScenarioAsync(string[] args)
     {
-        if (args.Length < 2 || args[0] != "validate")
+        if (args.Length < 2)
         {
-            return Fail("Usage: pocketframe scenario validate scenario.json");
+            return Fail("Usage: pocketframe scenario validate|run scenario.json [--report]");
         }
 
-        var scenario = await new ScenarioLoader().LoadAsync(args[1]);
+        if (args[0] == "validate")
+        {
+            return await ValidateScenarioAsync(args[1]);
+        }
+
+        if (args[0] == "run")
+        {
+            var result = await new ScenarioRunner().RunAsync(args[1], new ScenarioRunnerOptions
+            {
+                GenerateReport = !args.Contains("--no-report", StringComparer.OrdinalIgnoreCase)
+            });
+            Console.WriteLine(JsonSerializer.Serialize(result, AutomationJson.Options));
+            return result.ExitCode;
+        }
+
+        return Fail("Usage: pocketframe scenario validate|run scenario.json [--report]");
+    }
+
+    private static async Task<int> ValidateScenarioAsync(string path)
+    {
+        var scenario = await new ScenarioLoader().LoadAsync(path);
         var result = new ScenarioValidator().Validate(scenario);
         if (result.IsValid)
         {
-            Console.WriteLine($"ok: {args[1]}");
+            Console.WriteLine($"ok: {path}");
             return 0;
         }
 
-        Console.WriteLine($"fail: {args[1]}");
+        Console.WriteLine($"fail: {path}");
         foreach (var error in result.Errors)
         {
             Console.WriteLine($"  - {error}");
@@ -118,14 +145,51 @@ internal static class PocketFrameCli
 
     private static async Task<int> TraceAsync(string[] args)
     {
-        if (args.Length < 2 || args[0] != "replay")
+        if (args.Length == 0)
         {
-            return Fail("Usage: pocketframe trace replay trace.json [delayMs]");
+            return Fail("Usage: pocketframe trace show|save|clear|replay ...");
         }
 
-        var delayMs = args.Length > 2 && int.TryParse(args[2], out var parsed) ? parsed : 0;
-        var response = await new AutomationPipeClient().SendAsync("replay_log", new ReplayLogParams { Path = args[1], DelayMs = delayMs }, timeoutMs: 60000);
-        return PrintAutomationResponse(response);
+        var client = new AutomationPipeClient();
+        var response = args[0] switch
+        {
+            "show" => await client.SendAsync("action_trace", new ActionTraceParams { Limit = ReadIntOption(args, "--limit") }),
+            "save" when args.Length >= 2 => await client.SendAsync("action_trace", new ActionTraceParams { OutputPath = args[1] }),
+            "clear" => await client.SendAsync("action_trace", new ActionTraceParams { Clear = true }),
+            "replay" when args.Length >= 2 => await client.SendAsync("replay_log", new ReplayLogParams { Path = args[1], DelayMs = ReadDelay(args) }, timeoutMs: 60000),
+            _ => null
+        };
+
+        return response is null ? Fail("Usage: pocketframe trace show [--limit n] | save path | clear | replay trace.json [delayMs]") : PrintAutomationResponse(response);
+    }
+
+    private static async Task<int> ReportAsync(string[] args)
+    {
+        if (args.Length == 0 || args[0] != "generate")
+        {
+            return Fail("Usage: pocketframe report generate --trace trace.json --out report.md [--scenario scenario.json]");
+        }
+
+        var tracePath = ReadStringOption(args, "--trace");
+        var outPath = ReadStringOption(args, "--out");
+        if (string.IsNullOrWhiteSpace(tracePath) || string.IsNullOrWhiteSpace(outPath))
+        {
+            return Fail("Usage: pocketframe report generate --trace trace.json --out report.md [--scenario scenario.json]");
+        }
+
+        var scenarioPath = ReadStringOption(args, "--scenario");
+        var scenario = string.IsNullOrWhiteSpace(scenarioPath) ? null : await new ScenarioLoader().LoadAsync(scenarioPath);
+        var trace = JsonSerializer.Deserialize<List<AutomationActionTraceEntry>>(await File.ReadAllTextAsync(tracePath), AutomationJson.Options) ?? [];
+        var report = new AutomationRunReport
+        {
+            RunId = Path.GetFileNameWithoutExtension(outPath),
+            RunDirectory = Path.GetDirectoryName(Path.GetFullPath(outPath)) ?? Environment.CurrentDirectory,
+            Scenario = scenario,
+            Trace = trace
+        };
+        var path = await new MarkdownReportWriter().WriteAsync(report, outPath);
+        Console.WriteLine(path);
+        return 0;
     }
 
     private static int PrintAutomationResponse(AutomationResponse response)
@@ -140,174 +204,20 @@ internal static class PocketFrameCli
         return 0;
     }
 
-    private static IReadOnlyList<string> ValidateProfile(string file)
-    {
-        var errors = new List<string>();
-        using var document = JsonDocument.Parse(File.ReadAllText(file));
-        var root = document.RootElement;
-        RequireString(root, "id", errors);
-        RequireString(root, "name", errors);
-        var screen = RequireObject(root, "screen", errors);
-        var shell = RequireObject(root, "shell", errors);
-        var screenWidth = RequirePositiveInt(screen, "width", "screen.width", errors);
-        var screenHeight = RequirePositiveInt(screen, "height", "screen.height", errors);
-        var screenX = RequireNumber(screen, "x", "screen.x", errors);
-        var screenY = RequireNumber(screen, "y", "screen.y", errors);
-        var shellWidth = RequirePositiveNumber(shell, "width", "shell.width", errors);
-        var shellHeight = RequirePositiveNumber(shell, "height", "shell.height", errors);
-        var shellAsset = RequireString(shell, "asset", errors);
-        if (!string.IsNullOrWhiteSpace(shellAsset))
-        {
-            var assetPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, shellAsset);
-            if (!File.Exists(assetPath))
-            {
-                errors.Add($"shell asset does not exist: {assetPath}");
-            }
-        }
-
-        if (screenX < 0 || screenY < 0 || screenX + screenWidth > shellWidth || screenY + screenHeight > shellHeight)
-        {
-            errors.Add("screen geometry must stay inside shell bounds.");
-        }
-
-        if (root.TryGetProperty("buttons", out var buttons) && buttons.ValueKind == JsonValueKind.Array)
-        {
-            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var button in buttons.EnumerateArray())
-            {
-                var id = RequireString(button, "id", errors);
-                if (!string.IsNullOrWhiteSpace(id) && !ids.Add(id))
-                {
-                    errors.Add($"button.id must be unique: {id}");
-                }
-
-                var buttonX = RequireNumber(button, "x", $"button '{id}' x", errors);
-                var buttonY = RequireNumber(button, "y", $"button '{id}' y", errors);
-                var buttonWidth = RequirePositiveNumber(button, "width", $"button '{id}' width", errors);
-                var buttonHeight = RequirePositiveNumber(button, "height", $"button '{id}' height", errors);
-                var key = RequireString(button, "key", errors);
-                ValidateMappableKey(id, "key", key, errors);
-                ValidateOptionalMappableKey(id, "blueKey", button, errors);
-                ValidateOptionalMappableKey(id, "orangeKey", button, errors);
-                if (buttonX < 0 || buttonY < 0 || buttonX + buttonWidth > shellWidth || buttonY + buttonHeight > shellHeight)
-                {
-                    errors.Add($"button '{id}' geometry must stay inside shell bounds.");
-                }
-            }
-        }
-
-        return errors;
-    }
-
-    private static ProfileSummary ReadProfileSummary(string file)
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(file));
-        var root = document.RootElement;
-        var screen = root.GetProperty("screen");
-        return new ProfileSummary(
-            root.GetProperty("id").GetString() ?? string.Empty,
-            root.GetProperty("name").GetString() ?? string.Empty,
-            screen.GetProperty("width").GetInt32(),
-            screen.GetProperty("height").GetInt32(),
-            file);
-    }
-
-    private static string[] FindProfileFiles()
-    {
-        var root = DefaultDevicesRoot();
-        return Directory.Exists(root) ? Directory.EnumerateFiles(root, "profile.json", SearchOption.AllDirectories).ToArray() : [];
-    }
-
     private static string DefaultDevicesRoot() => Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "src", "PocketFrame.App", "Assets", "Devices"));
 
-    private static JsonElement RequireObject(JsonElement root, string name, List<string> errors)
+    private static int? ReadIntOption(string[] args, string name)
     {
-        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Object)
-        {
-            errors.Add($"{name} is required.");
-            return default;
-        }
-
-        return value;
+        var value = ReadStringOption(args, name);
+        return int.TryParse(value, out var parsed) ? parsed : null;
     }
 
-    private static string RequireString(JsonElement root, string name, List<string> errors)
+    private static int ReadDelay(string[] args) => args.Length > 2 && int.TryParse(args[2], out var parsed) ? parsed : 0;
+
+    private static string? ReadStringOption(string[] args, string name)
     {
-        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString()))
-        {
-            errors.Add($"{name} is required.");
-            return string.Empty;
-        }
-
-        return value.GetString() ?? string.Empty;
-    }
-
-    private static int RequirePositiveInt(JsonElement root, string name, string label, List<string> errors)
-    {
-        if (!root.TryGetProperty(name, out var value) || !value.TryGetInt32(out var result) || result <= 0)
-        {
-            errors.Add($"{label} must be greater than 0.");
-            return 0;
-        }
-
-        return result;
-    }
-
-    private static double RequirePositiveNumber(JsonElement root, string name, string label, List<string> errors)
-    {
-        var value = RequireNumber(root, name, label, errors);
-        if (value <= 0)
-        {
-            errors.Add($"{label} must be greater than 0.");
-        }
-
-        return value;
-    }
-
-    private static double RequireNumber(JsonElement root, string name, string label, List<string> errors)
-    {
-        if (!root.TryGetProperty(name, out var value) || !value.TryGetDouble(out var result))
-        {
-            errors.Add($"{label} is required.");
-            return 0;
-        }
-
-        return result;
-    }
-
-    private static void ValidateOptionalMappableKey(string buttonId, string property, JsonElement button, List<string> errors)
-    {
-        if (button.TryGetProperty(property, out var value) &&
-            value.ValueKind == JsonValueKind.String &&
-            !string.IsNullOrWhiteSpace(value.GetString()))
-        {
-            ValidateMappableKey(buttonId, property, value.GetString() ?? string.Empty, errors);
-        }
-    }
-
-    private static void ValidateMappableKey(string buttonId, string property, string key, List<string> errors)
-    {
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return;
-        }
-
-        if (key.Length == 1 || (key.StartsWith("Char:", StringComparison.Ordinal) && key.Length == 6))
-        {
-            return;
-        }
-
-        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Backspace", "Tab", "Enter", "Escape", "Shift", "Ctrl", "Control", "Alt", "Home",
-            "Left", "Up", "Right", "Down", "F1", "F2", "F3", "F4", "F11", "F12", "Delete",
-            "Space", "Fn", "Blue", "Orange"
-        };
-
-        if (!named.Contains(key))
-        {
-            errors.Add($"button '{buttonId}' {property} is not mappable: {key}");
-        }
+        var index = Array.FindIndex(args, arg => arg.Equals(name, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
     }
 
     private static int Fail(string message)
@@ -324,10 +234,13 @@ internal static class PocketFrameCli
         Console.WriteLine("  pocketframe devices list");
         Console.WriteLine("  pocketframe profiles validate [profile.json|devices-root]");
         Console.WriteLine("  pocketframe scenario validate scenario.json");
+        Console.WriteLine("  pocketframe scenario run scenario.json [--report|--no-report]");
         Console.WriteLine("  pocketframe capture screen [output.png]");
         Console.WriteLine("  pocketframe capture device [output.png]");
+        Console.WriteLine("  pocketframe trace show [--limit n]");
+        Console.WriteLine("  pocketframe trace save action-trace.json");
+        Console.WriteLine("  pocketframe trace clear");
         Console.WriteLine("  pocketframe trace replay trace.json [delayMs]");
+        Console.WriteLine("  pocketframe report generate --trace trace.json --out report.md [--scenario scenario.json]");
     }
-
-    private sealed record ProfileSummary(string Id, string Name, int ScreenWidth, int ScreenHeight, string Path);
 }

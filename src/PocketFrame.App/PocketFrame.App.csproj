@@ -28,5 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PocketFrame.Automation\PocketFrame.Automation.csproj" />
+    <ProjectReference Include="..\PocketFrame.DeviceProfiles\PocketFrame.DeviceProfiles.csproj" />
   </ItemGroup>
 </Project>

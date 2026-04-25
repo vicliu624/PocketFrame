@@ -4,6 +4,22 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.3.0] - 2026-04-25
+
+### Added
+
+- Added `PocketFrame.DeviceProfiles` with shared device profile models, loading, and validation.
+- Added `PocketFrame.Runner` with a first scenario runner that creates auditable run directories.
+- Added `pocketframe scenario run` for scenario-based state capture, initial screenshots, trace export, and report generation.
+- Added `pocketframe trace show`, `pocketframe trace save`, and `pocketframe trace clear`.
+- Added `pocketframe report generate`.
+- Added focused test projects for automation serialization, scenarios, reports, device profiles, and framebuffer operations.
+
+### Changed
+
+- Reused shared device profile validation from both the app and CLI to avoid duplicate profile semantics.
+- Updated CI to run tests before publishing release artifacts.
+
 ## [0.2.0] - 2026-04-25
 
 ### Release Focus

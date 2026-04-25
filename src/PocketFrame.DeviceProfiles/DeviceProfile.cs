@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace PocketFrame.App.Models;
+namespace PocketFrame.DeviceProfiles;
 
 public sealed class DeviceProfile
 {
@@ -15,5 +15,5 @@ public sealed class DeviceProfile
     public double ScreenScale { get; set; } = 1;
     public string BackgroundColor { get; set; } = "#10131a";
     public string ShellAssetPath { get; set; } = string.Empty;
-    public ObservableCollection<ButtonProfile> Buttons { get; set; } = new();
+    public ObservableCollection<ButtonProfile> Buttons { get; set; } = [];
 }

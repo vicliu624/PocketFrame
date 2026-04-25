@@ -1,4 +1,4 @@
-using PocketFrame.App.Models;
+using PocketFrame.DeviceProfiles;
 
 namespace PocketFrame.App.Services;
 

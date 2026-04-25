@@ -53,4 +53,25 @@ scenarios/cardputer-zero-openbox-smoke.json
 
 ## Boundary
 
-Scenarios are not test scripts yet. They do not encode actions, assertions, external modules, or reports in this version. Those layers should build on top of the stable automation loop first.
+Scenarios are not full test scripts yet. They do not encode actions, assertions, or external modules in this version.
+
+## Running
+
+The first runner expects `PocketFrame.App` to already be open, connected to VNC, and set to the scenario device.
+
+```bash
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+```
+
+The runner creates:
+
+```text
+runs/<scenario-name>/<timestamp>/
+  scenario.json
+  state.json
+  action-trace.json
+  screenshots/
+    initial-screen.png
+    initial-device.png
+  report.md
+```

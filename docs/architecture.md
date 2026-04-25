@@ -20,7 +20,7 @@ It does not emulate CPU, GPU, GPIO, I2C, SPI, storage, board firmware, or Raspbe
 
 The `PocketFrame.Automation` project contains shared command and response models for the internal pipe protocol. The `PocketFrame.Mcp` project exposes AI-facing MCP tools and forwards commands to the running app through that pipe. The `PocketFrame.Cli` project provides human and CI helper commands and also uses the pipe for runtime actions. MCP remains the AI-facing entry point; automation behavior remains owned by the app-side automation service.
 
-`PocketFrame.Scenarios` contains repeatable run definitions. `PocketFrame.Reports` contains report models and Markdown writing helpers. These projects consume automation artifacts; they do not own VNC or UI state.
+`PocketFrame.DeviceProfiles` contains shared profile models, loading, and validation. `PocketFrame.Scenarios` contains repeatable run definitions. `PocketFrame.Runner` turns scenarios into run artifacts through the automation pipe. `PocketFrame.Reports` contains report models and Markdown writing helpers. These projects consume automation artifacts; they do not own VNC or UI state.
 
 ## View Responsibilities
 

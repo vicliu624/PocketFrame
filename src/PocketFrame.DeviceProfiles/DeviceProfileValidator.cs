@@ -1,6 +1,4 @@
-using PocketFrame.App.Models;
-
-namespace PocketFrame.App.Services;
+namespace PocketFrame.DeviceProfiles;
 
 public sealed class DeviceProfileValidator
 {

@@ -158,7 +158,16 @@ public sealed class ReplayLogResult
     public int Failed { get; set; }
 
     [JsonPropertyName("entries")]
-    public List<AutomationActionTraceEntry> Entries { get; set; } = [];
+    public List<ReplayLogEntryResult> Entries { get; set; } = [];
+}
+
+public sealed class ReplayLogEntryResult
+{
+    [JsonPropertyName("originalEntry")]
+    public AutomationActionTraceEntry OriginalEntry { get; set; } = new();
+
+    [JsonPropertyName("replayEntry")]
+    public AutomationActionTraceEntry ReplayEntry { get; set; } = new();
 }
 
 public sealed class TextInputParams

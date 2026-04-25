@@ -101,6 +101,7 @@ The goal is to support application-level debugging workflows without claiming to
 - Add deterministic automation runs.
 - Add screenshot baselines and frame-diff assertions.
 - Add MCP-friendly run summaries.
+- Keep original trace evidence separate from replay evidence.
 
 ### 6. Recording and Reporting
 

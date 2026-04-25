@@ -1,3 +1,5 @@
+using PocketFrame.DeviceProfiles;
+
 namespace PocketFrame.App.Models;
 
 public sealed class SimulatorState

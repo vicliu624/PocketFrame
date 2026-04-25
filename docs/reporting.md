@@ -27,6 +27,8 @@ A report should record:
 - screenshots;
 - automation errors.
 
+Replay evidence should keep original and replay frame hashes separate. A replay result should not overwrite the original action trace entry; it should preserve the original entry and pair it with the replay entry.
+
 ## Project
 
 The initial report skeleton lives in:
@@ -42,3 +44,15 @@ It currently provides:
 - `MarkdownReportWriter`
 
 The report layer does not run automation by itself. It consumes scenario, trace, state, and screenshot artifacts produced by the automation loop.
+
+Generate a report from an existing trace:
+
+```bash
+pocketframe report generate --trace runs/current/action-trace.json --out runs/current/report.md
+```
+
+Scenario runs can generate reports automatically:
+
+```bash
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+```

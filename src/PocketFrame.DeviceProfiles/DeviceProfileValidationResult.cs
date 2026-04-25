@@ -1,4 +1,4 @@
-namespace PocketFrame.App.Services;
+namespace PocketFrame.DeviceProfiles;
 
 public sealed class DeviceProfileValidationResult
 {

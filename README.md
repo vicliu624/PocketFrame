@@ -13,16 +13,15 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 - screen and device capture;
 - an MCP-first automation path for AI-driven debugging.
 
-## Version Focus
+## Current Development Focus
 
-The `0.2.0` release is a correction-and-regression release. It tightens the product direction around a stable AI automation loop instead of expanding sideways into hardware simulation.
+The `0.3.0` development focus is scenario running and regression reports. It turns scenario files into concrete, auditable run directories while keeping MCP as the AI-facing automation path.
 
-This version focuses on:
+The current direction focuses on:
 
 - stable frame observation through framebuffer hashes and quiet-window waiting;
 - replayable automation traces for debugging and regression checks;
-- clearer VNC behavior through CopyRect, Hextile, normalized connection errors, and framebuffer-size mismatch warnings;
-- scenario definitions as the future base for repeatable runs;
+- scenario runs that export state, screenshots, traces, and reports;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
 
@@ -74,8 +73,14 @@ PocketFrame.Mcp
 PocketFrame.Automation
   - Shared command, response, pipe, and result models
 
+PocketFrame.DeviceProfiles
+  - Shared device profile models, loader, and validator
+
 PocketFrame.Scenarios
   - Shared scenario definitions for repeatable automation runs
+
+PocketFrame.Runner
+  - Scenario runner for auditable run artifacts
 
 PocketFrame.Cli
   - Human and CI helper commands
@@ -230,9 +235,14 @@ The CLI is intentionally small and does not replace MCP. Runtime commands still 
 pocketframe devices list
 pocketframe profiles validate
 pocketframe scenario validate scenarios/cardputer-zero-openbox-smoke.json
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
 pocketframe capture screen captures/screen.png
 pocketframe capture device captures/device.png
+pocketframe trace show --limit 20
+pocketframe trace save runs/current/action-trace.json
+pocketframe trace clear
 pocketframe trace replay runs/cardputer-zero-openbox/action-trace.json
+pocketframe report generate --trace runs/current/action-trace.json --out runs/current/report.md
 ```
 
 The CLI is for humans and CI. AI automation should continue to use MCP.
@@ -240,6 +250,27 @@ The CLI is for humans and CI. AI automation should continue to use MCP.
 Runtime CLI commands do not bypass `PocketFrame.App`; capture and trace replay commands use the same named pipe automation protocol as MCP.
 
 See `docs/cli.md`.
+
+## Scenario Runner
+
+`PocketFrame.Runner` turns a validated scenario into an auditable run directory. The first version expects `PocketFrame.App` to already be running and connected to VNC.
+
+```bash
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+```
+
+Output layout:
+
+```text
+runs/<scenario-name>/<timestamp>/
+  scenario.json
+  state.json
+  action-trace.json
+  screenshots/
+    initial-screen.png
+    initial-device.png
+  report.md
+```
 
 ## Automation Loop
 
@@ -332,8 +363,9 @@ See `CHANGELOG.md` for release notes.
 - MCP automation controls the running GUI app through a local named pipe.
 - The CLI is a human/CI helper and is not a second automation control plane.
 - The MCP server expects `PocketFrame.App` to already be running.
+- `scenario run` currently expects the app to already be connected to the correct device and VNC session.
 - `capture_screen` is framebuffer-based; `capture_device` captures the rendered Avalonia device view.
-- Reports have model and Markdown writer support, but full scenario execution and automatic report generation are not complete yet.
+- Reports are generated from scenario, state, trace, and screenshot artifacts; richer assertion and baseline comparison are still future work.
 - Recording remains a placeholder service.
 - Device shells are still approximate and can be refined.
 
@@ -341,8 +373,8 @@ See `CHANGELOG.md` for release notes.
 
 - Improve RFB performance and add more encodings.
 - Add Tight and ZRLE VNC encoding support.
-- Add first-class scenario execution.
-- Generate full run reports from scenarios, traces, screenshots, frame indexes, and frame hashes.
+- Add first-class scenario actions and assertions.
+- Add screenshot baseline comparison.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.
 - Add more device profiles such as T-Deck and additional cyberdeck layouts.
 - Refine shell artwork and keyboard legends.

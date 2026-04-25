@@ -265,6 +265,8 @@ Arguments:
 
 Replays a saved automation trace. The first version replays action-like commands and synchronization commands. Observation-only commands such as state reads and captures are ignored.
 
+Replay results keep original and replay evidence separate. Each replayed item returns `originalEntry` and `replayEntry` so regression reports can compare the original frame hashes against the replay frame hashes without confusing the two runs.
+
 Arguments:
 
 ```json

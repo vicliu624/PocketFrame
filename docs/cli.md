@@ -10,9 +10,14 @@ Runtime commands use the same named pipe automation protocol as MCP, so the GUI 
 pocketframe devices list
 pocketframe profiles validate [profile.json|devices-root]
 pocketframe scenario validate scenario.json
+pocketframe scenario run scenario.json [--report|--no-report]
 pocketframe capture screen [output.png]
 pocketframe capture device [output.png]
+pocketframe trace show [--limit n]
+pocketframe trace save action-trace.json
+pocketframe trace clear
 pocketframe trace replay trace.json [delayMs]
+pocketframe report generate --trace trace.json --out report.md [--scenario scenario.json]
 ```
 
 ## Boundaries
@@ -37,8 +42,20 @@ Validate a scenario:
 dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario validate scenarios/cardputer-zero-openbox-smoke.json
 ```
 
+Run a scenario against the currently running app:
+
+```bash
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+```
+
 Capture through the running app:
 
 ```bash
 dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- capture screen captures/screen.png
+```
+
+Save the current action trace:
+
+```bash
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- trace save runs/current/action-trace.json
 ```

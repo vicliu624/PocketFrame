@@ -59,7 +59,14 @@
 - Add commands for device listing, profile validation, scenario validation, captures, and trace replay.
 - Add report models and Markdown output for scenario, trace, screenshot, frame index, frame hash, and error evidence.
 
-## Phase 9: External Device Modules
+## Phase 9: Scenario Runner and Tests
+
+- Add `PocketFrame.DeviceProfiles` to remove duplicate profile semantics.
+- Add `PocketFrame.Runner` for scenario-based run directories.
+- Add CLI trace show/save/clear and report generation commands.
+- Add focused tests for validators, reports, automation serialization, and framebuffer operations.
+
+## Phase 10: External Device Modules
 
 - Add a high-level module system for simulated external devices.
 - Prototype a virtual GPS module that can stream deterministic NMEA-like data.
@@ -68,7 +75,7 @@
 - Expose module state and controls through MCP tools.
 - Keep this layer at the application-integration level, not physical GPIO/I2C/SPI bus emulation.
 
-## Phase 10: AI Debugging Workflows
+## Phase 11: AI Debugging Workflows
 
 - Add screenshot baseline comparison.
 - Generate debugging reports with screenshots, commands, frame indexes, and module state.

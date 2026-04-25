@@ -1,4 +1,4 @@
-namespace PocketFrame.App.Models;
+namespace PocketFrame.DeviceProfiles;
 
 public sealed class ButtonProfile
 {

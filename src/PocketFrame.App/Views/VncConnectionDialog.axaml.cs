@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using PocketFrame.App.Models;
+using PocketFrame.DeviceProfiles;
 using PocketFrame.App.Services;
 
 namespace PocketFrame.App.Views;

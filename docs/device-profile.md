@@ -2,6 +2,8 @@
 
 Device profiles describe the physical shell and screen geometry used by the simulator. Profiles are JSON files stored under `src/PocketFrame.App/Assets/Devices/<device-id>/profile.json`.
 
+Shared profile models, loading, and validation live in `src/PocketFrame.DeviceProfiles`. Both `PocketFrame.App` and `PocketFrame.Cli` use this project so profile validity has one interpretation.
+
 ## Schema
 
 ```json

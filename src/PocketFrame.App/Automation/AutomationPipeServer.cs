@@ -267,11 +267,18 @@ public sealed class AutomationPipeServer : IAsyncDisposable
                 Params = JsonSerializer.SerializeToElement(entry.Params, AutomationJson.Options)
             };
             var response = await DispatchAsync(command);
-            var replayed = CloneTraceEntry(entry);
-            replayed.Ok = response.Ok;
-            replayed.ErrorCode = response.Error?.Code ?? string.Empty;
-            replayed.ErrorMessage = response.Error?.Message ?? string.Empty;
-            result.Entries.Add(replayed);
+            result.Entries.Add(new ReplayLogEntryResult
+            {
+                OriginalEntry = CloneTraceEntry(entry),
+                ReplayEntry = FindTraceEntry(command.Id) ?? new AutomationActionTraceEntry
+                {
+                    Id = command.Id,
+                    Method = command.Method,
+                    Ok = response.Ok,
+                    ErrorCode = response.Error?.Code ?? string.Empty,
+                    ErrorMessage = response.Error?.Message ?? string.Empty
+                }
+            });
             if (response.Ok)
             {
                 result.Replayed++;
@@ -290,6 +297,16 @@ public sealed class AutomationPipeServer : IAsyncDisposable
 
     private static bool IsTraceable(string method) =>
         method is "capture_screen" or "capture_device" or "type_text" or "press_key" or "press_button" or "click_screen" or "wait_frame_change" or "wait_stable_frame";
+
+    private AutomationActionTraceEntry? FindTraceEntry(string id)
+    {
+        lock (traceSync)
+        {
+            return actionTrace.LastOrDefault(entry => entry.Id.Equals(id, StringComparison.Ordinal)) is { } entry
+                ? CloneTraceEntry(entry)
+                : null;
+        }
+    }
 
     private static AutomationActionTraceEntry CloneTraceEntry(AutomationActionTraceEntry entry) => new()
     {
