@@ -15,13 +15,13 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 
 ## Current Development Focus
 
-The current development focus is `0.5.0 - Visual Baseline Regression`. It turns scenario reports from smoke-level evidence into visual regression evidence with baseline screenshots, diff images, changed-pixel ratios, and automatic failure captures.
+The current development focus is `0.6.0 - Robust Visual Regression Workflow`. It makes visual regression less brittle with region-limited comparisons, ignored dynamic areas, pixel tolerance, baseline update flows, and richer visual diff reports.
 
 The current direction focuses on:
 
 - stable frame observation through framebuffer hashes and quiet-window waiting;
 - replayable automation traces for debugging and regression checks;
-- scenario runs that execute actions, evaluate assertions, compare visual baselines, and export reports;
+- scenario runs that execute actions, evaluate assertions, compare visual baselines, update baselines, and export reports;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
 
@@ -236,6 +236,7 @@ pocketframe devices list
 pocketframe profiles validate
 pocketframe scenario validate scenarios/cardputer-zero-openbox-smoke.json
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --report
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --update-baselines
 pocketframe capture screen captures/screen.png
 pocketframe capture device captures/device.png
 pocketframe trace show --limit 20
@@ -298,7 +299,7 @@ Supported first-version assertions:
 - `allActionsSucceeded`
 - `screenshotMatchesBaseline`
 
-Visual baseline assertions compare an actual screenshot label with a PNG baseline:
+Visual baseline assertions compare an actual screenshot label with a PNG baseline. Optional regions, ignored regions, and pixel tolerance make the comparison more robust against dynamic UI areas and small rendering differences:
 
 ```json
 {
@@ -306,9 +307,21 @@ Visual baseline assertions compare an actual screenshot label with a PNG baselin
   "type": "screenshotMatchesBaseline",
   "label": "after-ls",
   "baseline": "baselines/cardputer-zero-openbox/after-ls.png",
-  "threshold": 0.02
+  "threshold": 0.02,
+  "pixelTolerance": 8,
+  "regions": [
+    { "x": 0, "y": 0, "width": 340, "height": 150 }
+  ],
+  "ignoreRegions": [
+    { "x": 300, "y": 0, "width": 40, "height": 20 }
+  ],
+  "maskRegions": [
+    { "x": 0, "y": 160, "width": 340, "height": 10 }
+  ]
 }
 ```
+
+Use `--update-baselines` to create or approve baselines from the current actual screenshots.
 
 ## Automation Loop
 
@@ -411,7 +424,7 @@ See `CHANGELOG.md` for release notes.
 
 - Improve RFB performance and add more encodings.
 - Add Tight and ZRLE VNC encoding support.
-- Improve screenshot baseline comparison with region matching and richer visual diffs.
+- Improve screenshot baseline comparison with mask images and region-level reports.
 - Add high-level external module simulation such as virtual GPS and virtual LoRa.
 - Add more device profiles such as T-Deck and additional cyberdeck layouts.
 - Refine shell artwork and keyboard legends.

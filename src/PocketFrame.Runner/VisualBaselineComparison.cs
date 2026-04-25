@@ -14,5 +14,8 @@ public sealed class VisualBaselineComparison
     public int TotalPixels { get; set; }
     public double ChangedRatio { get; set; }
     public double Threshold { get; set; }
+    public int PixelTolerance { get; set; }
+    public int ComparedPixels { get; set; }
+    public int IgnoredPixels { get; set; }
     public string Message { get; set; } = string.Empty;
 }

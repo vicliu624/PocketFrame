@@ -22,6 +22,23 @@ public sealed class MarkdownReportWriterTests
             Screenshots =
             {
                 new ReportScreenshot { Label = "Initial screen", Path = "screenshots/initial-screen.png", FrameIndex = 11, FrameHash = "def" }
+            },
+            AssertionResults =
+            {
+                new ReportAssertionResult
+                {
+                    Id = "visual",
+                    Type = "screenshotMatchesBaseline",
+                    Passed = false,
+                    BaselinePath = "baseline.png",
+                    ActualPath = "actual.png",
+                    DiffPath = "diff.png",
+                    ChangedPixels = 2,
+                    TotalPixels = 10,
+                    ChangedRatio = 0.2,
+                    Threshold = 0.1,
+                    PixelTolerance = 8
+                }
             }
         };
 
@@ -30,5 +47,7 @@ public sealed class MarkdownReportWriterTests
         Assert.Contains("smoke", markdown);
         Assert.Contains("type_text", markdown);
         Assert.Contains("initial-screen.png", markdown);
+        Assert.Contains("## Visual Diffs", markdown);
+        Assert.Contains("diff.png", markdown);
     }
 }

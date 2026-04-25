@@ -161,6 +161,42 @@ public sealed class ScenarioRunnerTests
         Assert.True(File.Exists(Path.Combine(result.Artifacts.RunDirectory, assertion.DiffPath)));
     }
 
+    [Fact]
+    public async Task RunCanUpdateMissingBaseline()
+    {
+        using var directory = new TemporaryDirectory();
+        var baselinePath = Path.Combine(directory.Path, "baselines", "after-ls.png");
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "baseline-update",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Actions =
+            {
+                new ScenarioAction { Id = "capture-after-ls", Type = "captureScreen", Label = "after-ls" }
+            },
+            Assertions =
+            {
+                new ScenarioAssertion
+                {
+                    Id = "baseline",
+                    Type = "screenshotMatchesBaseline",
+                    Label = "after-ls",
+                    Baseline = "baselines/after-ls.png"
+                }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath, new ScenarioRunnerOptions { UpdateBaselines = true });
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(baselinePath));
+        Assert.Contains(result.Assertions, assertion => assertion.Message == "Baseline updated.");
+    }
+
     private static ScenarioRunner CreateRunner(IAutomationClient client) =>
         new(new ScenarioLoader(), new ScenarioValidator(), client, new MarkdownReportWriter());
 

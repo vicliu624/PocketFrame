@@ -13,6 +13,21 @@ public sealed class VisualBaselineComparer
         double threshold,
         CancellationToken cancellationToken = default)
     {
+        return await CompareAsync(
+            actualPath,
+            baselinePath,
+            diffPath,
+            new VisualBaselineCompareOptions { Threshold = threshold },
+            cancellationToken);
+    }
+
+    public async Task<VisualBaselineComparison> CompareAsync(
+        string actualPath,
+        string baselinePath,
+        string diffPath,
+        VisualBaselineCompareOptions options,
+        CancellationToken cancellationToken = default)
+    {
         var actualBytes = await File.ReadAllBytesAsync(actualPath, cancellationToken);
         var baselineBytes = await File.ReadAllBytesAsync(baselinePath, cancellationToken);
         var actual = PngImage.Decode(actualBytes);
@@ -28,22 +43,52 @@ public sealed class VisualBaselineComparer
                 Height = actual.Height,
                 BaselineWidth = baseline.Width,
                 BaselineHeight = baseline.Height,
-                Threshold = threshold,
+                Threshold = options.Threshold,
+                PixelTolerance = options.PixelTolerance,
                 Passed = false,
                 Message = $"Image size mismatch: actual {actual.Width}x{actual.Height}, baseline {baseline.Width}x{baseline.Height}."
             };
         }
 
-        var totalPixels = actual.Width * actual.Height;
+        var selection = BuildSelection(actual.Width, actual.Height, options);
+        var totalPixels = selection.Count(pixel => pixel);
+        var ignoredPixels = selection.Length - totalPixels;
+        if (totalPixels == 0)
+        {
+            return new VisualBaselineComparison
+            {
+                ActualPath = actualPath,
+                BaselinePath = baselinePath,
+                DiffPath = string.Empty,
+                Width = actual.Width,
+                Height = actual.Height,
+                BaselineWidth = baseline.Width,
+                BaselineHeight = baseline.Height,
+                TotalPixels = 0,
+                ComparedPixels = 0,
+                IgnoredPixels = ignoredPixels,
+                Threshold = options.Threshold,
+                PixelTolerance = options.PixelTolerance,
+                Passed = false,
+                Message = "No pixels were selected for visual comparison."
+            };
+        }
+
         var changedPixels = 0;
         var diff = new byte[actual.Pixels.Length];
-        for (var index = 0; index < totalPixels; index++)
+        for (var index = 0; index < selection.Length; index++)
         {
             var offset = index * 4;
-            var changed = actual.Pixels[offset] != baseline.Pixels[offset] ||
-                          actual.Pixels[offset + 1] != baseline.Pixels[offset + 1] ||
-                          actual.Pixels[offset + 2] != baseline.Pixels[offset + 2] ||
-                          actual.Pixels[offset + 3] != baseline.Pixels[offset + 3];
+            if (!selection[index])
+            {
+                diff[offset] = 24;
+                diff[offset + 1] = 24;
+                diff[offset + 2] = 24;
+                diff[offset + 3] = 255;
+                continue;
+            }
+
+            var changed = ExceedsTolerance(actual.Pixels, baseline.Pixels, offset, options.PixelTolerance);
             if (changed)
             {
                 changedPixels++;
@@ -75,13 +120,64 @@ public sealed class VisualBaselineComparer
             BaselineHeight = baseline.Height,
             ChangedPixels = changedPixels,
             TotalPixels = totalPixels,
+            ComparedPixels = totalPixels,
+            IgnoredPixels = ignoredPixels,
             ChangedRatio = changedRatio,
-            Threshold = threshold,
-            Passed = changedRatio <= threshold,
-            Message = changedRatio <= threshold
+            Threshold = options.Threshold,
+            PixelTolerance = options.PixelTolerance,
+            Passed = changedRatio <= options.Threshold,
+            Message = changedRatio <= options.Threshold
                 ? "Screenshot matches baseline."
-                : $"Changed ratio {changedRatio:0.####} exceeds threshold {threshold:0.####}."
+                : $"Changed ratio {changedRatio:0.####} exceeds threshold {options.Threshold:0.####}."
         };
+    }
+
+    private static bool ExceedsTolerance(byte[] actual, byte[] baseline, int offset, int tolerance)
+    {
+        return Math.Abs(actual[offset] - baseline[offset]) > tolerance ||
+               Math.Abs(actual[offset + 1] - baseline[offset + 1]) > tolerance ||
+               Math.Abs(actual[offset + 2] - baseline[offset + 2]) > tolerance ||
+               Math.Abs(actual[offset + 3] - baseline[offset + 3]) > tolerance;
+    }
+
+    private static bool[] BuildSelection(int width, int height, VisualBaselineCompareOptions options)
+    {
+        var selection = new bool[width * height];
+        IReadOnlyList<VisualRegion> regions = options.Regions.Count == 0
+            ? [new VisualRegion(0, 0, width, height)]
+            : options.Regions;
+        foreach (var region in regions)
+        {
+            FillRegion(selection, width, height, region, true);
+        }
+
+        foreach (var region in options.IgnoreRegions)
+        {
+            FillRegion(selection, width, height, region, false);
+        }
+
+        foreach (var region in options.MaskRegions)
+        {
+            FillRegion(selection, width, height, region, false);
+        }
+
+        return selection;
+    }
+
+    private static void FillRegion(bool[] selection, int width, int height, VisualRegion region, bool value)
+    {
+        var left = Math.Clamp(region.X, 0, width);
+        var top = Math.Clamp(region.Y, 0, height);
+        var right = Math.Clamp(region.X + region.Width, 0, width);
+        var bottom = Math.Clamp(region.Y + region.Height, 0, height);
+        for (var y = top; y < bottom; y++)
+        {
+            var offset = y * width;
+            for (var x = left; x < right; x++)
+            {
+                selection[offset + x] = value;
+            }
+        }
     }
 
     private sealed record PngImage(int Width, int Height, byte[] Pixels)

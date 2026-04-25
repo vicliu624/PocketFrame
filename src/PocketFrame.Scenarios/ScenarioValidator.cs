@@ -127,6 +127,14 @@ public sealed class ScenarioValidator
                         errors.Add($"{assertionName}.threshold must be between 0 and 1.");
                     }
 
+                    if (assertion.PixelTolerance < 0 || assertion.PixelTolerance > 255)
+                    {
+                        errors.Add($"{assertionName}.pixelTolerance must be between 0 and 255.");
+                    }
+
+                    ValidateRegions(assertion.Regions, $"{assertionName}.regions", errors);
+                    ValidateRegions(assertion.IgnoreRegions, $"{assertionName}.ignoreRegions", errors);
+                    ValidateRegions(assertion.MaskRegions, $"{assertionName}.maskRegions", errors);
                     break;
                 case "framehashnotempty":
                     break;
@@ -152,6 +160,23 @@ public sealed class ScenarioValidator
         if (string.IsNullOrWhiteSpace(value))
         {
             errors.Add(message);
+        }
+    }
+
+    private static void ValidateRegions(IReadOnlyList<ScenarioRegion> regions, string name, List<string> errors)
+    {
+        for (var index = 0; index < regions.Count; index++)
+        {
+            var region = regions[index];
+            if (region.X < 0 || region.Y < 0)
+            {
+                errors.Add($"{name}[{index}].x and y must be non-negative.");
+            }
+
+            if (region.Width <= 0 || region.Height <= 0)
+            {
+                errors.Add($"{name}[{index}].width and height must be greater than 0.");
+            }
         }
     }
 

@@ -87,9 +87,10 @@
 
 ## Phase 12: CI-Ready Scenario Execution
 
+- Add robust visual regression workflow support with regions, ignored regions, pixel tolerance, and baseline update commands.
 - Add automation commands for selecting devices, setting scale, connecting VNC, disconnecting VNC, and reconnecting.
 - Allow the scenario runner to prepare the app state from scenario connection settings.
-- Add region baseline assertions and richer visual diff metadata.
+- Add mask images and region-level visual diff metadata.
 - Keep scenario files declarative and avoid turning them into a general scripting language.
 
 ## Future Recording

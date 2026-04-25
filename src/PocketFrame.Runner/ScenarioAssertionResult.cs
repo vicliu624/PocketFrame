@@ -13,6 +13,8 @@ public sealed class ScenarioAssertionResult
     public string DiffPath { get; set; } = string.Empty;
     public int ChangedPixels { get; set; }
     public int TotalPixels { get; set; }
+    public int IgnoredPixels { get; set; }
     public double ChangedRatio { get; set; }
     public double Threshold { get; set; }
+    public int PixelTolerance { get; set; }
 }

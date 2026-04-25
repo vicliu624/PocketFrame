@@ -113,11 +113,29 @@ Visual baseline assertions compare a captured screenshot label with a PNG baseli
   "type": "screenshotMatchesBaseline",
   "label": "after-ls",
   "baseline": "baselines/cardputer-zero-openbox/after-ls.png",
-  "threshold": 0.02
+  "threshold": 0.02,
+  "pixelTolerance": 8,
+  "regions": [
+    { "x": 0, "y": 0, "width": 340, "height": 150 }
+  ],
+  "ignoreRegions": [
+    { "x": 300, "y": 0, "width": 40, "height": 20 }
+  ],
+  "maskRegions": [
+    { "x": 0, "y": 160, "width": 340, "height": 10 }
+  ]
 }
 ```
 
-The runner writes a diff PNG into the run screenshots directory and records changed pixel count, changed ratio, and threshold in the report.
+The runner writes a diff PNG into the run screenshots directory and records changed pixel count, changed ratio, ignored pixel count, pixel tolerance, and threshold in the report.
+
+`regions` limits comparison to selected rectangles. If omitted, the full image is compared. `ignoreRegions` and `maskRegions` exclude dynamic areas such as clocks, cursors, blinking prompts, or animations. `pixelTolerance` allows small per-channel differences.
+
+Baselines can be created or approved from actual screenshots:
+
+```bash
+pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --update-baselines
+```
 
 ## Failure Captures
 

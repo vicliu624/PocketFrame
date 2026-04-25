@@ -4,6 +4,21 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [0.6.0] - 2026-04-25
+
+### Added
+
+- Added region-limited visual baseline comparisons.
+- Added `ignoreRegions` and `maskRegions` for dynamic or noisy visual areas.
+- Added `pixelTolerance` for small per-channel rendering differences.
+- Added `scenario run --update-baselines` for creating or approving screenshot baselines from actual captures.
+- Added expanded visual diff sections in Markdown reports.
+- Added direct `VisualBaselineComparer` tests for identical images, thresholds, regions, size mismatch, and RGB/grayscale PNG decoding.
+
+### Changed
+
+- Visual baseline reports now include ignored pixel count and pixel tolerance evidence.
+
 ## [0.5.0] - 2026-04-25
 
 ### Added

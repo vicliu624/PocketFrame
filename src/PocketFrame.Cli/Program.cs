@@ -90,7 +90,7 @@ internal static class PocketFrameCli
     {
         if (args.Length < 2)
         {
-            return Fail("Usage: pocketframe scenario validate|run scenario.json [--report]");
+            return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines]");
         }
 
         if (args[0] == "validate")
@@ -102,13 +102,14 @@ internal static class PocketFrameCli
         {
             var result = await new ScenarioRunner().RunAsync(args[1], new ScenarioRunnerOptions
             {
-                GenerateReport = !args.Contains("--no-report", StringComparer.OrdinalIgnoreCase)
+                GenerateReport = !args.Contains("--no-report", StringComparer.OrdinalIgnoreCase),
+                UpdateBaselines = args.Contains("--update-baselines", StringComparer.OrdinalIgnoreCase)
             });
             Console.WriteLine(JsonSerializer.Serialize(result, AutomationJson.Options));
             return result.ExitCode;
         }
 
-        return Fail("Usage: pocketframe scenario validate|run scenario.json [--report]");
+        return Fail("Usage: pocketframe scenario validate|run scenario.json [--report|--no-report] [--update-baselines]");
     }
 
     private static async Task<int> ValidateScenarioAsync(string path)
@@ -235,7 +236,7 @@ internal static class PocketFrameCli
         Console.WriteLine("  pocketframe devices list");
         Console.WriteLine("  pocketframe profiles validate [profile.json|devices-root]");
         Console.WriteLine("  pocketframe scenario validate scenario.json");
-        Console.WriteLine("  pocketframe scenario run scenario.json [--report|--no-report]");
+        Console.WriteLine("  pocketframe scenario run scenario.json [--report|--no-report] [--update-baselines]");
         Console.WriteLine("  pocketframe capture screen [output.png]");
         Console.WriteLine("  pocketframe capture device [output.png]");
         Console.WriteLine("  pocketframe trace show [--limit n]");

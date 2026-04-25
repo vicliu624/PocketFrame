@@ -89,7 +89,7 @@ public sealed class ScenarioRunner
             result.Actions.Add(await ExecuteActionAsync(action, result, context, cancellationToken));
         }
 
-        result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, cancellationToken));
+        result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, options, cancellationToken));
         if (scenario.Run.CaptureOnFailure && HasFailure(result))
         {
             await CaptureFailureArtifactsAsync(result, context, cancellationToken);
@@ -219,18 +219,27 @@ public sealed class ScenarioRunner
         });
     }
 
-    private async Task<List<ScenarioAssertionResult>> EvaluateAssertionsAsync(IReadOnlyList<ScenarioAssertion> assertions, RunResult runResult, CancellationToken cancellationToken)
+    private async Task<List<ScenarioAssertionResult>> EvaluateAssertionsAsync(
+        IReadOnlyList<ScenarioAssertion> assertions,
+        RunResult runResult,
+        ScenarioRunnerOptions options,
+        CancellationToken cancellationToken)
     {
         var results = new List<ScenarioAssertionResult>();
         foreach (var assertion in assertions)
         {
-            results.Add(await EvaluateAssertionAsync(assertion, runResult, results.Count, cancellationToken));
+            results.Add(await EvaluateAssertionAsync(assertion, runResult, options, results.Count, cancellationToken));
         }
 
         return results;
     }
 
-    private async Task<ScenarioAssertionResult> EvaluateAssertionAsync(ScenarioAssertion assertion, RunResult runResult, int index, CancellationToken cancellationToken)
+    private async Task<ScenarioAssertionResult> EvaluateAssertionAsync(
+        ScenarioAssertion assertion,
+        RunResult runResult,
+        ScenarioRunnerOptions options,
+        int index,
+        CancellationToken cancellationToken)
     {
         var result = new ScenarioAssertionResult
         {
@@ -292,7 +301,7 @@ public sealed class ScenarioRunner
                 result.Passed = failedActions.Count == 0;
                 break;
             case "screenshotmatchesbaseline":
-                await EvaluateScreenshotBaselineAssertionAsync(assertion, runResult, result, cancellationToken);
+                await EvaluateScreenshotBaselineAssertionAsync(assertion, runResult, result, options, cancellationToken);
                 break;
             default:
                 result.Expected = "supported assertion type";
@@ -318,6 +327,7 @@ public sealed class ScenarioRunner
         ScenarioAssertion assertion,
         RunResult runResult,
         ScenarioAssertionResult result,
+        ScenarioRunnerOptions options,
         CancellationToken cancellationToken)
     {
         var screenshot = runResult.Screenshots.FirstOrDefault(item => item.Label.Equals(assertion.Label, StringComparison.OrdinalIgnoreCase));
@@ -337,6 +347,7 @@ public sealed class ScenarioRunner
         result.ActualPath = screenshot.Path;
         result.DiffPath = RelativeTo(diffPath, runResult.Artifacts.RunDirectory);
         result.Threshold = assertion.Threshold;
+        result.PixelTolerance = assertion.PixelTolerance;
 
         if (!File.Exists(actualPath))
         {
@@ -347,19 +358,49 @@ public sealed class ScenarioRunner
 
         if (!File.Exists(baselinePath))
         {
-            result.Actual = $"baseline missing: {assertion.Baseline}";
-            result.Passed = false;
-            return;
+            if (options.UpdateBaselines)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(baselinePath))!);
+                File.Copy(actualPath, baselinePath, overwrite: true);
+            }
+            else
+            {
+                result.Actual = $"baseline missing: {assertion.Baseline}";
+                result.Passed = false;
+                return;
+            }
         }
 
-        var comparison = await visualBaselineComparer.CompareAsync(actualPath, baselinePath, diffPath, assertion.Threshold, cancellationToken);
+        if (options.UpdateBaselines)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(baselinePath))!);
+            File.Copy(actualPath, baselinePath, overwrite: true);
+        }
+
+        var comparison = await visualBaselineComparer.CompareAsync(
+            actualPath,
+            baselinePath,
+            diffPath,
+            new VisualBaselineCompareOptions
+            {
+                Threshold = assertion.Threshold,
+                PixelTolerance = assertion.PixelTolerance,
+                Regions = assertion.Regions.Select(ToVisualRegion).ToList(),
+                IgnoreRegions = assertion.IgnoreRegions.Select(ToVisualRegion).ToList(),
+                MaskRegions = assertion.MaskRegions.Select(ToVisualRegion).ToList()
+            },
+            cancellationToken);
         result.Passed = comparison.Passed;
-        result.Actual = $"changed ratio {comparison.ChangedRatio:0.####}";
-        result.Message = comparison.Passed ? string.Empty : comparison.Message;
+        result.Actual = options.UpdateBaselines
+            ? $"baseline updated, changed ratio {comparison.ChangedRatio:0.####}"
+            : $"changed ratio {comparison.ChangedRatio:0.####}";
+        result.Message = options.UpdateBaselines ? "Baseline updated." : comparison.Passed ? string.Empty : comparison.Message;
         result.ChangedPixels = comparison.ChangedPixels;
         result.TotalPixels = comparison.TotalPixels;
+        result.IgnoredPixels = comparison.IgnoredPixels;
         result.ChangedRatio = comparison.ChangedRatio;
         result.Threshold = comparison.Threshold;
+        result.PixelTolerance = comparison.PixelTolerance;
         if (string.IsNullOrWhiteSpace(comparison.DiffPath))
         {
             result.DiffPath = string.Empty;
@@ -479,6 +520,9 @@ public sealed class ScenarioRunner
     private static bool ShouldCaptureOnFailure(ScenarioAction action, ScenarioDefinition scenario) =>
         action.CaptureOnFailure ?? scenario.Run.CaptureOnFailure;
 
+    private static VisualRegion ToVisualRegion(ScenarioRegion region) =>
+        new(region.X, region.Y, region.Width, region.Height);
+
     private static string ResolveActionId(ScenarioAction action, int index) =>
         string.IsNullOrWhiteSpace(action.Id) ? $"action-{index + 1:000}" : action.Id;
 
@@ -517,7 +561,9 @@ public sealed class ScenarioRunner
         DiffPath = assertion.DiffPath,
         ChangedPixels = assertion.ChangedPixels,
         TotalPixels = assertion.TotalPixels,
+        IgnoredPixels = assertion.IgnoredPixels,
         ChangedRatio = assertion.ChangedRatio,
-        Threshold = assertion.Threshold
+        Threshold = assertion.Threshold,
+        PixelTolerance = assertion.PixelTolerance
     };
 }

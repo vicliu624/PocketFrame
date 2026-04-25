@@ -115,6 +115,33 @@ public sealed class ScenarioAssertion
     [JsonPropertyName("threshold")]
     public double Threshold { get; set; }
 
+    [JsonPropertyName("pixelTolerance")]
+    public int PixelTolerance { get; set; }
+
     [JsonPropertyName("expectedHash")]
     public string ExpectedHash { get; set; } = string.Empty;
+
+    [JsonPropertyName("regions")]
+    public List<ScenarioRegion> Regions { get; set; } = [];
+
+    [JsonPropertyName("ignoreRegions")]
+    public List<ScenarioRegion> IgnoreRegions { get; set; } = [];
+
+    [JsonPropertyName("maskRegions")]
+    public List<ScenarioRegion> MaskRegions { get; set; } = [];
+}
+
+public sealed class ScenarioRegion
+{
+    [JsonPropertyName("x")]
+    public int X { get; set; }
+
+    [JsonPropertyName("y")]
+    public int Y { get; set; }
+
+    [JsonPropertyName("width")]
+    public int Width { get; set; }
+
+    [JsonPropertyName("height")]
+    public int Height { get; set; }
 }

@@ -10,7 +10,7 @@ Runtime commands use the same named pipe automation protocol as MCP, so the GUI 
 pocketframe devices list
 pocketframe profiles validate [profile.json|devices-root]
 pocketframe scenario validate scenario.json
-pocketframe scenario run scenario.json [--report|--no-report]
+pocketframe scenario run scenario.json [--report|--no-report] [--update-baselines]
 pocketframe capture screen [output.png]
 pocketframe capture device [output.png]
 pocketframe trace show [--limit n]
@@ -49,6 +49,12 @@ dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario run 
 ```
 
 `scenario run` returns a non-zero exit code when an action fails or an assertion fails.
+
+Create or approve visual baselines from the current actual screenshots:
+
+```bash
+dotnet run --project src/PocketFrame.Cli/PocketFrame.Cli.csproj -- scenario run scenarios/cardputer-zero-openbox-smoke.json --update-baselines
+```
 
 Capture through the running app:
 

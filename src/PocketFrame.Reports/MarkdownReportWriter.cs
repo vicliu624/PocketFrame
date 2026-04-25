@@ -66,14 +66,18 @@ public sealed class MarkdownReportWriter
         builder.AppendLine();
         builder.AppendLine("## Assertions");
         builder.AppendLine();
-        builder.AppendLine("| Step | Id | Type | Result | Expected | Actual | Changed | Baseline | Actual Image | Diff | Message |");
-        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |");
+        builder.AppendLine("| Step | Id | Type | Result | Expected | Actual | Changed | Ignored | Tolerance | Baseline | Actual Image | Diff | Message |");
+        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- |");
         for (var index = 0; index < report.AssertionResults.Count; index++)
         {
             var assertion = report.AssertionResults[index];
             var changed = assertion.TotalPixels > 0 ? $"{assertion.ChangedRatio:0.####}" : string.Empty;
-            builder.AppendLine($"| {index + 1} | `{Escape(assertion.Id)}` | `{Escape(assertion.Type)}` | `{(assertion.Passed ? "PASS" : "FAIL")}` | `{Escape(assertion.Expected)}` | `{Escape(assertion.Actual)}` | `{changed}` | `{Escape(assertion.BaselinePath)}` | `{Escape(assertion.ActualPath)}` | `{Escape(assertion.DiffPath)}` | `{Escape(assertion.Message)}` |");
+            var ignored = assertion.IgnoredPixels > 0 ? assertion.IgnoredPixels.ToString() : string.Empty;
+            var tolerance = assertion.PixelTolerance > 0 ? assertion.PixelTolerance.ToString() : string.Empty;
+            builder.AppendLine($"| {index + 1} | `{Escape(assertion.Id)}` | `{Escape(assertion.Type)}` | `{(assertion.Passed ? "PASS" : "FAIL")}` | `{Escape(assertion.Expected)}` | `{Escape(assertion.Actual)}` | `{changed}` | `{ignored}` | `{tolerance}` | `{Escape(assertion.BaselinePath)}` | `{Escape(assertion.ActualPath)}` | `{Escape(assertion.DiffPath)}` | `{Escape(assertion.Message)}` |");
         }
+
+        AppendVisualDiffs(builder, report);
 
         builder.AppendLine();
         builder.AppendLine("## Screenshots");
@@ -104,4 +108,49 @@ public sealed class MarkdownReportWriter
 
     private static string Escape(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
     private static string ShortHash(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value[..Math.Min(value.Length, 12)];
+
+    private static void AppendVisualDiffs(StringBuilder builder, AutomationRunReport report)
+    {
+        var visualAssertions = report.AssertionResults
+            .Where(assertion => !string.IsNullOrWhiteSpace(assertion.BaselinePath) ||
+                                !string.IsNullOrWhiteSpace(assertion.ActualPath) ||
+                                !string.IsNullOrWhiteSpace(assertion.DiffPath))
+            .ToList();
+        if (visualAssertions.Count == 0)
+        {
+            return;
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## Visual Diffs");
+        builder.AppendLine();
+        foreach (var assertion in visualAssertions)
+        {
+            builder.AppendLine($"### {assertion.Id}");
+            builder.AppendLine();
+            builder.AppendLine($"- Result: `{(assertion.Passed ? "PASS" : "FAIL")}`");
+            builder.AppendLine($"- Changed ratio: `{assertion.ChangedRatio:0.####}`");
+            builder.AppendLine($"- Threshold: `{assertion.Threshold:0.####}`");
+            builder.AppendLine($"- Changed pixels: `{assertion.ChangedPixels} / {assertion.TotalPixels}`");
+            builder.AppendLine($"- Ignored pixels: `{assertion.IgnoredPixels}`");
+            builder.AppendLine($"- Pixel tolerance: `{assertion.PixelTolerance}`");
+            AppendImage(builder, "Baseline", assertion.BaselinePath);
+            AppendImage(builder, "Actual", assertion.ActualPath);
+            AppendImage(builder, "Diff", assertion.DiffPath);
+        }
+    }
+
+    private static void AppendImage(StringBuilder builder, string label, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        builder.AppendLine();
+        builder.AppendLine($"{label}:");
+        builder.AppendLine();
+        builder.AppendLine($"![{label}]({path})");
+        builder.AppendLine();
+    }
 }
