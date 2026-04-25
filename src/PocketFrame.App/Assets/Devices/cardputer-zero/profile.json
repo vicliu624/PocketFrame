@@ -1,0 +1,27 @@
+{
+  "id": "cardputer-zero",
+  "name": "Cardputer Zero",
+  "backgroundColor": "#121722",
+  "screen": {
+    "width": 340,
+    "height": 170,
+    "x": 197,
+    "y": 43,
+    "scale": 1
+  },
+  "shell": {
+    "width": 800,
+    "height": 520,
+    "asset": "shell.svg"
+  },
+  "buttons": [
+    { "id": "up", "label": "↑", "x": 74, "y": 240, "width": 34, "height": 28, "key": "Up", "description": "Directional up" },
+    { "id": "down", "label": "↓", "x": 74, "y": 300, "width": 34, "height": 28, "key": "Down", "description": "Directional down" },
+    { "id": "left", "label": "←", "x": 36, "y": 270, "width": 34, "height": 28, "key": "Left", "description": "Directional left" },
+    { "id": "right", "label": "→", "x": 112, "y": 270, "width": 34, "height": 28, "key": "Right", "description": "Directional right" },
+    { "id": "ok", "label": "OK", "x": 356, "y": 262, "width": 44, "height": 28, "key": "Enter", "description": "Confirm" },
+    { "id": "back", "label": "Back", "x": 408, "y": 262, "width": 48, "height": 28, "key": "Escape", "description": "Back or cancel" },
+    { "id": "menu", "label": "Menu", "x": 356, "y": 302, "width": 48, "height": 24, "key": "F1", "description": "Menu" },
+    { "id": "home", "label": "Home", "x": 412, "y": 302, "width": 44, "height": 24, "key": "Home", "description": "Home" }
+  ]
+}

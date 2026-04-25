@@ -1,0 +1,34 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+publish/
+captures/
+
+# IDE state
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# .NET tooling
+TestResults/
+coverage/
+*.nupkg
+*.snupkg
+
+# Local runtime config
+connections.json
+appsettings.Development.json

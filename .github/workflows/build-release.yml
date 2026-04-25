@@ -1,0 +1,119 @@
+name: build-release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            rid: win-x64
+            archive: zip
+          - name: linux-x64
+            rid: linux-x64
+            archive: tar.gz
+          - name: macos-x64
+            rid: osx-x64
+            archive: tar.gz
+          - name: macos-arm64
+            rid: osx-arm64
+            archive: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore PocketFrame.sln
+
+      - name: Build
+        run: dotnet build PocketFrame.sln --configuration Release --no-restore
+
+      - name: Publish PocketFrame.App
+        run: >
+          dotnet publish src/PocketFrame.App/PocketFrame.App.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output artifacts/publish/${{ matrix.name }}/PocketFrame.App
+
+      - name: Publish PocketFrame.Mcp
+        run: >
+          dotnet publish src/PocketFrame.Mcp/PocketFrame.Mcp.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output artifacts/publish/${{ matrix.name }}/PocketFrame.Mcp
+
+      - name: Copy docs and license
+        run: |
+          mkdir -p artifacts/publish/${{ matrix.name }}/docs
+          cp README.md LICENSE artifacts/publish/${{ matrix.name }}/
+          cp docs/*.md artifacts/publish/${{ matrix.name }}/docs/
+
+      - name: Archive zip
+        if: matrix.archive == 'zip'
+        run: |
+          cd artifacts/publish/${{ matrix.name }}
+          zip -r ../../PocketFrame-${{ matrix.name }}.zip .
+
+      - name: Archive tar.gz
+        if: matrix.archive == 'tar.gz'
+        run: |
+          cd artifacts/publish/${{ matrix.name }}
+          tar -czf ../../PocketFrame-${{ matrix.name }}.tar.gz .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketFrame-${{ matrix.name }}
+          path: |
+            artifacts/PocketFrame-${{ matrix.name }}.zip
+            artifacts/PocketFrame-${{ matrix.name }}.tar.gz
+          if-no-files-found: ignore
+
+  github-release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true

@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PocketFrame.App.Views.VncFramebufferView"
+             ClipToBounds="True">
+  <Border Background="#05070a">
+    <Image x:Name="FramebufferImage" Stretch="Fill" RenderOptions.BitmapInterpolationMode="None" />
+  </Border>
+</UserControl>

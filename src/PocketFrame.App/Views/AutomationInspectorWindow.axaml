@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PocketFrame.App.Views.AutomationInspectorWindow"
+        Title="Automation Inspector"
+        Width="680"
+        Height="520"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        Background="#f7f7f7"
+        RequestedThemeVariant="Light">
+  <Grid RowDefinitions="*,Auto" Margin="16">
+    <ScrollViewer>
+      <StackPanel Spacing="12">
+        <TextBlock Text="PocketFrame Automation Inspector" FontSize="20" FontWeight="SemiBold" Foreground="#111111" />
+        <TextBlock Text="This panel inspects the MCP automation bridge. It does not execute tools." Foreground="#444444" />
+
+        <Border BorderBrush="#d0d0d0" BorderThickness="1" CornerRadius="4" Padding="12" Background="#ffffff">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="170,*">
+            <TextBlock Text="Pipe status" FontWeight="SemiBold" />
+            <TextBlock x:Name="PipeStatusText" Grid.Column="1" />
+
+            <TextBlock Grid.Row="1" Text="Pipe name" FontWeight="SemiBold" />
+            <TextBlock x:Name="PipeNameText" Grid.Row="1" Grid.Column="1" />
+
+            <TextBlock Grid.Row="2" Text="Device" FontWeight="SemiBold" />
+            <TextBlock x:Name="DeviceText" Grid.Row="2" Grid.Column="1" />
+
+            <TextBlock Grid.Row="3" Text="VNC status" FontWeight="SemiBold" />
+            <TextBlock x:Name="VncStatusText" Grid.Row="3" Grid.Column="1" />
+
+            <TextBlock Grid.Row="4" Text="Frame index" FontWeight="SemiBold" />
+            <TextBlock x:Name="FrameIndexText" Grid.Row="4" Grid.Column="1" />
+
+            <TextBlock Grid.Row="5" Text="Last frame" FontWeight="SemiBold" />
+            <TextBlock x:Name="LastFrameText" Grid.Row="5" Grid.Column="1" />
+
+            <TextBlock Grid.Row="6" Text="Last command" FontWeight="SemiBold" />
+            <TextBlock x:Name="LastCommandText" Grid.Row="6" Grid.Column="1" TextWrapping="Wrap" />
+
+            <TextBlock Grid.Row="7" Text="Last result" FontWeight="SemiBold" />
+            <TextBlock x:Name="LastResultText" Grid.Row="7" Grid.Column="1" />
+
+            <TextBlock Grid.Row="8" Text="Last error" FontWeight="SemiBold" />
+            <TextBlock x:Name="LastErrorText" Grid.Row="8" Grid.Column="1" TextWrapping="Wrap" />
+
+            <TextBlock Grid.Row="9" Text="Log file" FontWeight="SemiBold" />
+            <TextBlock x:Name="LogPathText" Grid.Row="9" Grid.Column="1" TextWrapping="Wrap" />
+          </Grid>
+        </Border>
+
+        <Border BorderBrush="#d0d0d0" BorderThickness="1" CornerRadius="4" Padding="12" Background="#ffffff">
+          <StackPanel Spacing="8">
+            <TextBlock Text="MCP Server Command" FontWeight="SemiBold" />
+            <TextBox x:Name="McpCommandBox" IsReadOnly="True" />
+            <TextBlock Text="Use this command in an MCP client configuration after starting PocketFrame.App." Foreground="#555555" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+      <Button Content="Refresh" Click="OnRefreshClick" />
+      <Button Content="Close" Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

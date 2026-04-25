@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PocketFrame.App.Views.ToolbarView">
+  <Border Background="#202634" Padding="8">
+    <WrapPanel Orientation="Horizontal">
+      <WrapPanel.Styles>
+        <Style Selector="WrapPanel > :is(Control)">
+          <Setter Property="Margin" Value="0,0,10,8" />
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+      </WrapPanel.Styles>
+
+      <ComboBox Width="180" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <TextBlock Text="Host" Foreground="#dfe7f3" />
+      <TextBox Width="150" Text="{Binding Vnc.Host}" />
+
+      <TextBlock Text="Port" Foreground="#dfe7f3" />
+      <NumericUpDown Width="140" Minimum="1" Maximum="65535" Increment="1" Value="{Binding Vnc.Port}" />
+
+      <TextBlock Text="Password" Foreground="#dfe7f3" />
+      <TextBox Width="130" PasswordChar="*" Text="{Binding Vnc.Password}" />
+
+      <Button Content="Connect / Disconnect" Command="{Binding ConnectCommand}" />
+
+      <TextBlock Text="Scale" Foreground="#dfe7f3" />
+      <ComboBox Width="90" ItemsSource="{Binding Scales}" SelectedItem="{Binding SelectedScale}" />
+
+      <Button x:Name="ScreenshotButton" Content="Screenshot" />
+      <Button Content="{Binding RecordingLabel}" Command="{Binding RecordingCommand}" />
+      <TextBlock Text="{Binding Vnc.Status}" Foreground="#d2f7a7" />
+    </WrapPanel>
+  </Border>
+</UserControl>

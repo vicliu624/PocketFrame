@@ -1,0 +1,18 @@
+{
+  "id": "uconsole",
+  "name": "uConsole",
+  "backgroundColor": "#edf8fa",
+  "screen": {
+    "width": 1280,
+    "height": 720,
+    "x": 240,
+    "y": 360,
+    "scale": 1
+  },
+  "shell": {
+    "width": 1760,
+    "height": 2180,
+    "asset": "shell.svg"
+  },
+  "buttons": []
+}
