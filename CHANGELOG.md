@@ -6,6 +6,12 @@ PocketFrame follows a simple release-log format during early development. The pr
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-04-26
+
+### Fixed
+
+- Fixed an automation activity crash when nullable numeric JSON fields such as `pid: null` were displayed for environment process commands.
+
 ## [0.9.0] - 2026-04-26
 
 ### Added

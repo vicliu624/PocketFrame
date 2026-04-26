@@ -626,6 +626,7 @@ public sealed class AutomationActivityEventArgs : EventArgs
     {
         return element is { ValueKind: JsonValueKind.Object } value &&
                value.TryGetProperty(name, out var property) &&
+               property.ValueKind == JsonValueKind.Number &&
                property.TryGetInt32(out var parsed)
             ? parsed
             : fallback;
@@ -635,6 +636,7 @@ public sealed class AutomationActivityEventArgs : EventArgs
     {
         return element is { ValueKind: JsonValueKind.Object } value &&
                value.TryGetProperty(name, out var property) &&
+               property.ValueKind == JsonValueKind.Number &&
                property.TryGetInt64(out var parsed)
             ? parsed
             : fallback;
@@ -644,6 +646,7 @@ public sealed class AutomationActivityEventArgs : EventArgs
     {
         return element is { ValueKind: JsonValueKind.Object } value &&
                value.TryGetProperty(name, out var property) &&
+               property.ValueKind == JsonValueKind.Number &&
                property.TryGetDouble(out var parsed)
             ? parsed
             : fallback;
