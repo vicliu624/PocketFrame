@@ -14,6 +14,31 @@ internal sealed class ProcessRunner
         int timeoutMs,
         CancellationToken cancellationToken)
     {
+        return await RunAsync(fileName, splitArguments: null, arguments, logicalCommand, workingDirectory, stdin, timeoutMs, cancellationToken);
+    }
+
+    public async Task<EnvironmentCommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        string logicalCommand,
+        string workingDirectory,
+        string stdin,
+        int timeoutMs,
+        CancellationToken cancellationToken)
+    {
+        return await RunAsync(fileName, arguments, flatArguments: null, logicalCommand, workingDirectory, stdin, timeoutMs, cancellationToken);
+    }
+
+    private async Task<EnvironmentCommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string>? splitArguments,
+        string? flatArguments,
+        string logicalCommand,
+        string workingDirectory,
+        string stdin,
+        int timeoutMs,
+        CancellationToken cancellationToken)
+    {
         var start = DateTimeOffset.Now;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(timeoutMs);
@@ -21,7 +46,7 @@ internal sealed class ProcessRunner
         process.StartInfo = new ProcessStartInfo
         {
             FileName = fileName,
-            Arguments = arguments,
+            Arguments = splitArguments is null ? flatArguments ?? string.Empty : string.Empty,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -30,6 +55,13 @@ internal sealed class ProcessRunner
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        if (splitArguments is not null)
+        {
+            foreach (var argument in splitArguments)
+            {
+                process.StartInfo.ArgumentList.Add(argument);
+            }
+        }
 
         var result = new EnvironmentCommandResult
         {

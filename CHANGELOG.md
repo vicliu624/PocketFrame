@@ -6,6 +6,13 @@ PocketFrame follows a simple release-log format during early development. The pr
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-04-26
+
+### Fixed
+
+- Made WSL environment execution pass arguments through `ProcessStartInfo.ArgumentList` instead of a flat quoted argument string, avoiding fragile distro resolution.
+- Trimmed environment profile string fields and allowed resolving a profile by its WSL distro name.
+
 ## [0.9.1] - 2026-04-26
 
 ### Fixed

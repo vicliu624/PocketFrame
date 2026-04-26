@@ -339,8 +339,17 @@ public sealed class EnvironmentService : IEnvironmentService
 
     private async Task<EnvironmentCommandResult> RunWslAsync(EnvironmentProfile profile, string command, string workingDirectory, string stdin, int timeoutMs, CancellationToken cancellationToken)
     {
-        var args = $"-d {QuoteArgument(profile.Distro)} --cd {QuoteArgument(workingDirectory)} -- {profile.Shell} -lc {QuoteArgument(command)}";
-        var result = await processRunner.RunAsync("wsl.exe", args, command, workingDirectory, stdin, timeoutMs, cancellationToken);
+        var distro = NormalizeProcessArgument(profile.Distro);
+        var shell = NormalizeProcessArgument(profile.Shell);
+        var cd = NormalizeProcessArgument(workingDirectory);
+        var result = await processRunner.RunAsync(
+            "wsl.exe",
+            ["-d", distro, "--cd", cd, "--", shell, "-lc", command],
+            command,
+            workingDirectory,
+            stdin,
+            timeoutMs,
+            cancellationToken);
         result.ProfileId = profile.Id;
         return result;
     }
@@ -412,4 +421,7 @@ public sealed class EnvironmentService : IEnvironmentService
     public static string ShellQuote(string value) => "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
 
     private static string QuoteArgument(string value) => "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+
+    private static string NormalizeProcessArgument(string value) =>
+        value.Trim().Trim('\uFEFF', '\u200B', '\u200C', '\u200D');
 }

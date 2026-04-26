@@ -19,6 +19,7 @@ public sealed class EnvironmentProfileService
         var results = new List<EnvironmentProfileLoadResult>();
         foreach (var profile in document.Profiles)
         {
+            Normalize(profile);
             var validation = validator.Validate(profile);
             results.Add(new EnvironmentProfileLoadResult(path, profile, validation.Errors));
         }
@@ -38,7 +39,8 @@ public sealed class EnvironmentProfileService
         var selected = string.IsNullOrWhiteSpace(profileId)
             ? valid.FirstOrDefault()
             : valid.FirstOrDefault(profile => profile.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase) ||
-                                               profile.Name.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+                                               profile.Name.Equals(profileId, StringComparison.OrdinalIgnoreCase) ||
+                                               profile.Distro.Equals(profileId, StringComparison.OrdinalIgnoreCase));
         return selected ?? throw new InvalidOperationException($"Unknown environment profile '{profileId}'.");
     }
 
@@ -66,6 +68,23 @@ public sealed class EnvironmentProfileService
     }
 
     public static string DefaultProfilePath() => Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "environments.json"));
+
+    private static void Normalize(EnvironmentProfile profile)
+    {
+        profile.Id = Clean(profile.Id);
+        profile.Name = Clean(profile.Name);
+        profile.Type = Clean(profile.Type);
+        profile.Distro = Clean(profile.Distro);
+        profile.WorkingDirectory = Clean(profile.WorkingDirectory);
+        profile.Shell = Clean(profile.Shell);
+        profile.Vnc.Display = Clean(profile.Vnc.Display);
+        profile.Vnc.Host = Clean(profile.Vnc.Host);
+        profile.Vnc.Geometry = Clean(profile.Vnc.Geometry);
+        profile.Vnc.StartupCommand = profile.Vnc.StartupCommand.Trim();
+    }
+
+    private static string Clean(string value) =>
+        value.Trim().Trim('\uFEFF', '\u200B', '\u200C', '\u200D');
 
     private static EnvironmentProfile DefaultProfile() => new()
     {
