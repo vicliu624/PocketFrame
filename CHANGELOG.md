@@ -4,6 +4,26 @@ All notable changes to PocketFrame will be documented in this file.
 
 PocketFrame follows a simple release-log format during early development. The project is pre-1.0, so breaking changes may still occur as the MCP automation model, device profiles, and VNC implementation stabilize.
 
+## [Unreleased]
+
+## [0.9.0] - 2026-04-26
+
+### Added
+
+- Added structured input truth echo for `press_key` and `press_button`, including active layers, resolved keys, emitted VNC transport/key/keysyms, and warnings that profile projections and VNC keys are not Linux evdev truth.
+- Added input action results to automation traces and Markdown report input audit sections.
+- Added MCP activity summaries for structured input results, app lifecycle operations, and evdev capture.
+- Added scenario `app` lifecycle configuration for target app status, stale process killing, state/cache cleanup, background launch, log paths, binary metadata, and optional cleanup.
+- Added MCP target app lifecycle tools for status, kill, launch, clean state, and tail log operations.
+- Added MCP evdev observation tools for listing `/dev/input/event*` devices and capturing short evdev event windows with explicit VNC caveats.
+- Added `logContains` and `jsonEquals` scenario assertions for target-side semantic evidence from logs and JSON snapshots.
+- Added tests for input echo serialization, app lifecycle scenario validation, semantic assertions, app harness runner flow, and report input audit output.
+
+### Changed
+
+- Improved VNC framebuffer rendering throughput by avoiding per-frame framebuffer cloning, reusing the Avalonia bitmap, coalescing queued UI frame updates, and disabling TCP Nagle delays for the VNC socket.
+- Updated MCP tool descriptions to distinguish PocketFrame profile projection, VNC logical key emission, and Linux evdev observation.
+
 ## [0.8.0] - 2026-04-26
 
 ### Added

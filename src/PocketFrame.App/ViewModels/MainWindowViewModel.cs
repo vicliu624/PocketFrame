@@ -24,6 +24,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private string captureStatus = string.Empty;
     private string lastInputStatus = "Input: idle";
     private string automationStatus = "Automation: starting";
+    private readonly object framebufferDispatchSync = new();
+    private RfbFramebuffer? pendingFramebuffer;
+    private bool framebufferDispatchQueued;
 
     public MainWindowViewModel(
         IDeviceProfileService deviceProfileService,
@@ -45,7 +48,7 @@ public sealed class MainWindowViewModel : ObservableObject
         ConnectCommand = new AsyncCommand(ConnectOrDisconnectAsync);
         RecordingCommand = new AsyncCommand(ToggleRecordingAsync);
 
-        vncClientService.FramebufferUpdated += (_, framebuffer) => Dispatcher.UIThread.Post(() => Vnc.Framebuffer = framebuffer);
+        vncClientService.FramebufferUpdated += (_, framebuffer) => QueueFramebufferUpdate(framebuffer);
         vncClientService.StatusChanged += (_, status) => Dispatcher.UIThread.Post(() => Vnc.Status = status);
         DeviceShell.InputStatusChanged += (_, message) => Dispatcher.UIThread.Post(() => LastInputStatus = $"Input: {message}");
     }
@@ -256,6 +259,38 @@ public sealed class MainWindowViewModel : ObservableObject
         while (AutomationActivity.Count > 6)
         {
             AutomationActivity.RemoveAt(AutomationActivity.Count - 1);
+        }
+    }
+
+    private void QueueFramebufferUpdate(RfbFramebuffer framebuffer)
+    {
+        lock (framebufferDispatchSync)
+        {
+            pendingFramebuffer = framebuffer;
+            if (framebufferDispatchQueued)
+            {
+                return;
+            }
+
+            framebufferDispatchQueued = true;
+        }
+
+        Dispatcher.UIThread.Post(FlushFramebufferUpdate, DispatcherPriority.Render);
+    }
+
+    private void FlushFramebufferUpdate()
+    {
+        RfbFramebuffer? framebuffer;
+        lock (framebufferDispatchSync)
+        {
+            framebuffer = pendingFramebuffer;
+            pendingFramebuffer = null;
+            framebufferDispatchQueued = false;
+        }
+
+        if (framebuffer is not null)
+        {
+            Vnc.UpdateFramebuffer(framebuffer);
         }
     }
 

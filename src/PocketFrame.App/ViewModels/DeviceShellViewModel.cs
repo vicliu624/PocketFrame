@@ -1,5 +1,6 @@
 using PocketFrame.App.Services;
 using PocketFrame.App.Utils;
+using PocketFrame.Automation;
 using PocketFrame.DeviceProfiles;
 
 namespace PocketFrame.App.ViewModels;
@@ -28,26 +29,64 @@ public sealed class DeviceShellViewModel : ObservableObject
     public event EventHandler<string>? InputStatusChanged;
     public IReadOnlyList<string> ActiveLayers => latchedModifiers.ToList();
 
-    public async Task SendButtonAsync(ButtonProfile button)
+    public async Task<InputActionResult> SendButtonAsync(ButtonProfile button)
     {
+        var activeLayersBefore = ActiveLayers.ToList();
         LogInput($"Button click {button.Id}/{button.Label} -> {button.KeyCode}");
 
         if (ModifierKeys.Contains(button.KeyCode))
         {
             ToggleModifier(button.KeyCode);
             LogInput($"Modifier latched {button.KeyCode}");
-            return;
+            return CreateButtonResult(button, activeLayersBefore, ActiveLayers, button.KeyCode, button.KeyCode, [], "modifier");
         }
 
         var resolvedKeyCode = ResolveLayeredKeyCode(button);
+        if (resolvedKeyCode.Equals("Reboot", StringComparison.OrdinalIgnoreCase))
+        {
+            await SendRebootChordAsync(button);
+            latchedModifiers.Clear();
+            var ctrl = InputMappingService.ToKeysym("Ctrl");
+            var alt = InputMappingService.ToKeysym("Alt");
+            var delete = InputMappingService.ToKeysym("Delete");
+            var rebootEvents = new List<InputEmittedEvent>();
+            if (ctrl is not null)
+            {
+                rebootEvents.Add(Emitted("Ctrl", ctrl.Value, "down"));
+            }
+
+            if (alt is not null)
+            {
+                rebootEvents.Add(Emitted("Alt", alt.Value, "down"));
+            }
+
+            if (delete is not null)
+            {
+                rebootEvents.Add(Emitted("Delete", delete.Value, "tap"));
+            }
+
+            if (alt is not null)
+            {
+                rebootEvents.Add(Emitted("Alt", alt.Value, "up"));
+            }
+
+            if (ctrl is not null)
+            {
+                rebootEvents.Add(Emitted("Ctrl", ctrl.Value, "up"));
+            }
+
+            return CreateButtonResult(button, activeLayersBefore, ActiveLayers, "Reboot", button.KeyCode, rebootEvents, SelectedLayer(activeLayersBefore));
+        }
+
         var keysym = InputMappingService.ToKeysym(resolvedKeyCode);
         if (keysym is null)
         {
             LogInput($"Button {button.Id} unmapped key {resolvedKeyCode}");
-            return;
+            return CreateButtonResult(button, activeLayersBefore, ActiveLayers, resolvedKeyCode, button.KeyCode, [], SelectedLayer(activeLayersBefore));
         }
 
         var activeModifiers = latchedModifiers.Where(TransportModifierKeys.Contains).ToArray();
+        var emitted = new List<InputEmittedEvent>();
         foreach (var modifier in activeModifiers)
         {
             var modifierKeysym = InputMappingService.ToKeysym(modifier);
@@ -55,12 +94,14 @@ public sealed class DeviceShellViewModel : ObservableObject
             {
                 LogInput($"Button modifier down {modifier} -> 0x{modifierKeysym.Value:x}");
                 await VncClientService.SendKeyAsync(modifierKeysym.Value, true);
+                emitted.Add(Emitted(modifier, modifierKeysym.Value, "down"));
             }
         }
 
         LogInput($"Button key {button.KeyCode} resolved {resolvedKeyCode} -> 0x{keysym.Value:x} down/up");
         await VncClientService.SendKeyAsync(keysym.Value, true);
         await VncClientService.SendKeyAsync(keysym.Value, false);
+        emitted.Add(Emitted(resolvedKeyCode, keysym.Value, "tap"));
 
         foreach (var modifier in activeModifiers.Reverse())
         {
@@ -69,10 +110,12 @@ public sealed class DeviceShellViewModel : ObservableObject
             {
                 LogInput($"Button modifier up {modifier} -> 0x{modifierKeysym.Value:x}");
                 await VncClientService.SendKeyAsync(modifierKeysym.Value, false);
+                emitted.Add(Emitted(modifier, modifierKeysym.Value, "up"));
             }
         }
 
         latchedModifiers.RemoveAll(modifier => LayerKeys.Contains(modifier) || TransportModifierKeys.Contains(modifier));
+        return CreateButtonResult(button, activeLayersBefore, ActiveLayers, resolvedKeyCode, button.KeyCode, emitted, SelectedLayer(activeLayersBefore));
     }
 
     public async Task BeginButtonPressAsync(ButtonProfile button)
@@ -234,6 +277,57 @@ public sealed class DeviceShellViewModel : ObservableObject
 
         return button.KeyCode;
     }
+
+    private static InputActionResult CreateButtonResult(
+        ButtonProfile button,
+        IReadOnlyList<string> activeLayersBefore,
+        IReadOnlyList<string> activeLayersAfter,
+        string resolvedKey,
+        string sourceKey,
+        List<InputEmittedEvent> emitted,
+        string selectedLayer)
+    {
+        var primary = emitted.FirstOrDefault(item =>
+            item.Phase.Equals("tap", StringComparison.OrdinalIgnoreCase) ||
+            item.Phase.StartsWith("hold:", StringComparison.OrdinalIgnoreCase)) ?? emitted.FirstOrDefault();
+        return new InputActionResult
+        {
+            RequestedAction = "press_button",
+            RequestedButtonId = button.Id,
+            InputLayer = "pocketframe-profile",
+            ActiveLayersBefore = activeLayersBefore.ToList(),
+            ActiveLayersAfter = activeLayersAfter.ToList(),
+            ResolvedKey = resolvedKey,
+            EmittedTransport = primary?.Transport ?? "vnc",
+            EmittedKey = primary?.Key ?? resolvedKey,
+            EmittedKeysym = primary?.Keysym ?? string.Empty,
+            Resolved = new InputResolvedButton
+            {
+                ProfileButtonId = button.Id,
+                Label = button.Label,
+                SelectedLayer = selectedLayer,
+                ResolvedKey = resolvedKey,
+                SourceKey = sourceKey
+            },
+            Emitted = emitted,
+            Warnings =
+            {
+                "press_button uses PocketFrame device profile projection.",
+                "VNC key events are not Linux evdev events."
+            }
+        };
+    }
+
+    private static string SelectedLayer(IReadOnlyList<string> activeLayers) =>
+        activeLayers.FirstOrDefault(layer => LayerKeys.Contains(layer)) ?? "normal";
+
+    private static InputEmittedEvent Emitted(string key, uint keysym, string phase) => new()
+    {
+        Transport = "vnc",
+        Key = key,
+        Keysym = $"0x{keysym:x}",
+        Phase = phase
+    };
 
     private void LogInput(string message)
     {

@@ -51,6 +51,40 @@ Environment tools are adapter-based. The default adapter is WSL, but the MCP sch
 - `pocketframe_environment_install_packages`
 - `pocketframe_environment_launch`
 - `pocketframe_environment_tail_file`
+- `pocketframe_environment_app_status`
+- `pocketframe_environment_app_kill`
+- `pocketframe_environment_app_launch`
+- `pocketframe_environment_app_clean_state`
+- `pocketframe_environment_app_tail_log`
+- `pocketframe_environment_input_devices`
+- `pocketframe_environment_evdev_capture`
+
+App lifecycle tools use an app profile shape on top of the environment adapter. They are intended to prevent stale target processes, stale state/cache directories, and stale logs from polluting an AI debugging run.
+
+Example app profile payload:
+
+```json
+{
+  "profileId": "wsl-ubuntu-24.04",
+  "id": "lofibox",
+  "processMatch": "lofibox",
+  "binaryPath": "/home/user/lofibox/target/debug/lofibox",
+  "command": "DISPLAY=:10 ./lofibox",
+  "workingDirectory": "/home/user/lofibox",
+  "clearPaths": [".tmp/state", ".tmp/cache"],
+  "env": {
+    "XDG_STATE_HOME": ".tmp/state",
+    "XDG_CACHE_HOME": ".tmp/cache",
+    "LOFIBOX_RUNTIME_LOG_PATH": ".tmp/lofibox.log"
+  },
+  "logPath": ".tmp/lofibox.log",
+  "killBeforeLaunch": true
+}
+```
+
+`pocketframe_environment_app_status` returns whether the matched app is running plus PID, cwd, command line, binary mtime, log path, and state directory when available.
+
+`pocketframe_environment_input_devices` and `pocketframe_environment_evdev_capture` observe target Linux evdev devices. They are intentionally separate from PocketFrame input injection. VNC-injected keys may not appear in evdev captures.
 
 ## Input Model Tools
 
@@ -261,7 +295,7 @@ Arguments:
 
 ### `pocketframe_press_key`
 
-Presses a VNC key or key chord.
+Presses a VNC logical key or key chord. This is useful for validating application behavior through the VNC/X11 input path. It is not Linux evdev `KEY_*` truth.
 
 Arguments:
 
@@ -284,9 +318,28 @@ Examples:
 { "key": "Ctrl+C" }
 ```
 
+Returns structured input evidence:
+
+```json
+{
+  "ok": true,
+  "requestedAction": "press_key",
+  "requestedKey": "Left",
+  "inputLayer": "vnc-logical-key",
+  "resolvedKey": "Left",
+  "emittedTransport": "vnc",
+  "emittedKey": "Left",
+  "emittedKeysym": "0xff51",
+  "warnings": [
+    "press_key sends a VNC logical key event.",
+    "VNC key events are not Linux evdev events."
+  ]
+}
+```
+
 ### `pocketframe_press_button`
 
-Presses or holds a semantic device button or virtual keyboard button. This uses the same input mapping as the rendered device shell.
+Presses or holds a semantic device button or virtual keyboard button. This uses the same input mapping as the rendered device shell. It is a PocketFrame profile projection, not target Linux evdev truth.
 
 Arguments:
 
@@ -330,6 +383,29 @@ Cardputer Zero physical buttons can also expose separate short-press and long-pr
 ```
 
 The first command sends the short-press action for `NEXT`. The second holds the same physical button long enough to send its `HOME` behavior. The third models holding the `TALK` button.
+
+Returns structured input evidence:
+
+```json
+{
+  "ok": true,
+  "requestedAction": "press_button",
+  "requestedButtonId": "keyboard-z",
+  "inputLayer": "pocketframe-profile",
+  "activeLayersBefore": ["fn"],
+  "activeLayersAfter": [],
+  "resolvedKey": "Left",
+  "emittedTransport": "vnc",
+  "emittedKey": "Left",
+  "emittedKeysym": "0xff51",
+  "warnings": [
+    "press_button uses PocketFrame device profile projection.",
+    "VNC key events are not Linux evdev events."
+  ]
+}
+```
+
+Use this response to avoid confusing device-keycap layers with the target application's true input model. For example, `keyboard-z` plus the Fn layer may project to VNC `Left`; that does not mean the Linux app's evdev contract is `KEY_Z => KEY_LEFT`.
 
 ### `pocketframe_click_screen`
 

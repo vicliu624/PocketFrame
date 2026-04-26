@@ -16,7 +16,7 @@ PocketFrame lets an AI agent, developer, or tester interact with a real remote L
 
 ## Current Development Focus
 
-The current development focus is `0.8.0 - Target Environment Automation`. It closes the AI debugging loop by separating simulator control from target Linux environment management, then exposing both through MCP and the same app automation pipe.
+The current development focus is `0.9.0 - Input Truth and App Lifecycle Automation`. It closes the biggest AI-debugging ambiguity by separating PocketFrame profile projection, VNC logical key events, target environment process state, optional evdev observation, and app semantic evidence.
 
 The current direction focuses on:
 
@@ -24,6 +24,9 @@ The current direction focuses on:
 - replayable automation traces for debugging and regression checks;
 - scenario runs that execute actions, evaluate assertions, compare visual baselines, update baselines, and export reports;
 - target environment automation for Linux-side packages, files, processes, logs, and VNC lifecycle;
+- structured input echo for `press_key` and `press_button`, including active layers, resolved keys, emitted VNC keysyms, and truth warnings;
+- app lifecycle harnesses that kill stale processes, clear state/cache paths, launch the target app, record PID/binary/log evidence, and optionally clean up;
+- semantic assertions through target-side logs and JSON snapshots before heavier OCR-based approaches;
 - layered Cardputer Zero keyboard semantics for Fn, SYM, Aa, Ctrl, and Alt;
 - profile validation so bad device geometry fails early;
 - a minimal CLI for humans and CI, without competing with MCP.
@@ -237,6 +240,13 @@ Available MCP tools:
 - `pocketframe_environment_install_packages`
 - `pocketframe_environment_launch`
 - `pocketframe_environment_tail_file`
+- `pocketframe_environment_app_status`
+- `pocketframe_environment_app_kill`
+- `pocketframe_environment_app_launch`
+- `pocketframe_environment_app_clean_state`
+- `pocketframe_environment_app_tail_log`
+- `pocketframe_environment_input_devices`
+- `pocketframe_environment_evdev_capture`
 - `pocketframe_frame_hash`
 - `pocketframe_capture_screen`
 - `pocketframe_capture_device`
@@ -252,7 +262,14 @@ Available MCP tools:
 
 See `docs/mcp-automation.md` for schemas, examples, coordinate rules, and troubleshooting.
 
-`pocketframe_press_button` supports both short presses and hold durations, so AI agents can trigger physical long-press behavior such as Cardputer Zero `TALK` and `NEXT/HOME`.
+`pocketframe_press_key` returns a structured input result for the VNC logical key event. `pocketframe_press_button` returns a structured input result for the PocketFrame device-profile projection, including active layers, resolved key, emitted transport, emitted VNC keysym, and warnings that the result is not Linux evdev truth.
+
+This distinction is intentional:
+
+- `press_button` answers “what does this rendered device/profile button project to?”
+- `press_key` answers “what VNC logical key did PocketFrame emit?”
+- neither one proves what a target Linux app received from `/dev/input/event*`;
+- optional evdev tools can observe target Linux input devices when the environment supports it, but VNC-injected keys may not appear there.
 
 ## Scenarios
 
@@ -322,6 +339,7 @@ runs/<scenario-name>/<timestamp>/
   state.json
   action-trace.json
   environment-state.json
+  app-status.json
   screenshots/
     initial-screen.png
     initial-device.png
@@ -333,6 +351,8 @@ runs/<scenario-name>/<timestamp>/
 
 Supported first-version actions:
 
+- `wait`
+- `waitFrameChange`
 - `waitStableFrame`
 - `captureScreen`
 - `captureDevice`
@@ -353,6 +373,8 @@ Supported first-version assertions:
 - `actionFailed`
 - `allActionsSucceeded`
 - `screenshotMatchesBaseline`
+- `logContains`
+- `jsonEquals`
 
 Visual baseline assertions compare an actual screenshot label with a PNG baseline. Optional regions, ignored regions, and pixel tolerance make the comparison more robust against dynamic UI areas and small rendering differences:
 
@@ -392,6 +414,8 @@ Environment automation supports:
 - apt package installation;
 - background app launch with log capture;
 - log tailing.
+- app lifecycle helpers for status, kill, clean state/cache, launch, and log tailing;
+- optional `/dev/input/event*` device listing and short evdev capture, with explicit warnings that VNC-injected keys may not appear.
 
 See `docs/environments.md`.
 
@@ -432,7 +456,7 @@ It is a human debugging panel for the MCP bridge. It does not execute tools.
 
 The main window also shows a compact MCP activity panel in the lower-left corner of the simulator area. It lists the latest AI requests and simulator responses, such as typed text, key presses, screen clicks, captures, VNC connection preparation, and result summaries, without exposing VNC passwords.
 
-Environment operations also appear in the same panel, including command execution, package installation, VNC restart, process kill, app launch, and log tailing.
+Environment operations also appear in the same panel, including command execution, package installation, VNC restart, process kill, app lifecycle operations, evdev capture, and log tailing. Input actions include audit-friendly summaries such as `profile keyboard-z + fn => vnc Left 0xff51`.
 
 ## Coordinate System
 

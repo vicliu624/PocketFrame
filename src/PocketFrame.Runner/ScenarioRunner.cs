@@ -52,6 +52,7 @@ public sealed class ScenarioRunner
         result.Artifacts.ScenarioPath = Path.Combine(context.RunDirectory, "scenario.json");
         result.Artifacts.StatePath = Path.Combine(context.RunDirectory, "state.json");
         result.Artifacts.EnvironmentStatePath = Path.Combine(context.RunDirectory, "environment-state.json");
+        result.Artifacts.AppStatusPath = Path.Combine(context.RunDirectory, "app-status.json");
         result.Artifacts.TracePath = Path.Combine(context.RunDirectory, "action-trace.json");
         result.Artifacts.InitialScreenPath = Path.Combine(context.ScreenshotsDirectory, "initial-screen.png");
         result.Artifacts.InitialDevicePath = Path.Combine(context.ScreenshotsDirectory, "initial-device.png");
@@ -65,6 +66,11 @@ public sealed class ScenarioRunner
         if (options.PrepareEnvironment || scenario.Environment.Prepare)
         {
             await PrepareTargetEnvironmentAsync(scenario, result, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(scenario.App.Id) || !string.IsNullOrWhiteSpace(scenario.App.Command))
+        {
+            await PrepareScenarioAppAsync(scenario, result, cancellationToken);
         }
 
         if (options.PrepareEnvironment)
@@ -102,8 +108,12 @@ public sealed class ScenarioRunner
         }
 
         await ExecuteEnvironmentCommandsAsync(scenario.Environment.PostCommands, scenario.Environment, result, cancellationToken);
+        if (scenario.App.CleanupOnFinish)
+        {
+            await automationClient.SendAsync<EnvironmentOperationResult>("environment_app_kill", ToEnvironmentAppParams(scenario), cancellationToken: cancellationToken);
+        }
 
-        result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, options, cancellationToken));
+        result.Assertions.AddRange(await EvaluateAssertionsAsync(scenario.Assertions, result, context, options, cancellationToken));
         if (scenario.Run.CaptureOnFailure && HasFailure(result))
         {
             await CaptureFailureArtifactsAsync(result, context, cancellationToken);
@@ -242,6 +252,49 @@ public sealed class ScenarioRunner
         TimeoutMs = 30000
     };
 
+    private async Task PrepareScenarioAppAsync(ScenarioDefinition scenario, RunResult result, CancellationToken cancellationToken)
+    {
+        var parameters = ToEnvironmentAppParams(scenario);
+        if (scenario.App.ClearPaths.Count > 0)
+        {
+            var clean = await automationClient.SendAsync<EnvironmentOperationResult>("environment_app_clean_state", parameters, cancellationToken: cancellationToken);
+            AddEnvironmentOperation(result, clean);
+        }
+
+        if (scenario.App.KillBeforeLaunch)
+        {
+            var kill = await automationClient.SendAsync<EnvironmentOperationResult>("environment_app_kill", parameters, cancellationToken: cancellationToken);
+            AddEnvironmentOperation(result, kill);
+        }
+
+        if (!string.IsNullOrWhiteSpace(scenario.App.Command))
+        {
+            var launchParameters = ToEnvironmentAppParams(scenario);
+            launchParameters.KillBeforeLaunch = false;
+            launchParameters.ClearPaths = [];
+            var launch = await automationClient.SendAsync<EnvironmentLaunchResult>("environment_app_launch", launchParameters, cancellationToken: cancellationToken);
+            result.EnvironmentCommands.Add(new EnvironmentCommandResult { ProfileId = launch.ProfileId, Command = launch.Command, WorkingDirectory = launch.WorkingDirectory, ExitCode = 0 });
+        }
+
+        var status = await automationClient.SendAsync<EnvironmentAppStatusResult>("environment_app_status", parameters, cancellationToken: cancellationToken);
+        result.AppStatus = status;
+        await WriteJsonAsync(result.Artifacts.AppStatusPath, status, cancellationToken);
+    }
+
+    private static EnvironmentAppParams ToEnvironmentAppParams(ScenarioDefinition scenario) => new()
+    {
+        ProfileId = scenario.Environment.ProfileId,
+        Id = scenario.App.Id,
+        ProcessMatch = scenario.App.ProcessMatch,
+        BinaryPath = scenario.App.BinaryPath,
+        Command = scenario.App.Command,
+        WorkingDirectory = scenario.App.WorkingDirectory,
+        LogPath = scenario.App.LogPath,
+        ClearPaths = scenario.App.ClearPaths,
+        Env = scenario.App.Env,
+        KillBeforeLaunch = scenario.App.KillBeforeLaunch
+    };
+
     private static void AddEnvironmentOperation(RunResult result, EnvironmentOperationResult operation)
     {
         if (operation.Command is not null)
@@ -374,13 +427,14 @@ public sealed class ScenarioRunner
     private async Task<List<ScenarioAssertionResult>> EvaluateAssertionsAsync(
         IReadOnlyList<ScenarioAssertion> assertions,
         RunResult runResult,
+        RunContext context,
         ScenarioRunnerOptions options,
         CancellationToken cancellationToken)
     {
         var results = new List<ScenarioAssertionResult>();
         foreach (var assertion in assertions)
         {
-            results.Add(await EvaluateAssertionAsync(assertion, runResult, options, results.Count, cancellationToken));
+            results.Add(await EvaluateAssertionAsync(assertion, runResult, context, options, results.Count, cancellationToken));
         }
 
         return results;
@@ -389,6 +443,7 @@ public sealed class ScenarioRunner
     private async Task<ScenarioAssertionResult> EvaluateAssertionAsync(
         ScenarioAssertion assertion,
         RunResult runResult,
+        RunContext context,
         ScenarioRunnerOptions options,
         int index,
         CancellationToken cancellationToken)
@@ -455,6 +510,18 @@ public sealed class ScenarioRunner
             case "screenshotmatchesbaseline":
                 await EvaluateScreenshotBaselineAssertionAsync(assertion, runResult, result, options, cancellationToken);
                 break;
+            case "logcontains":
+                var logContent = await ReadAssertionTextAsync(assertion, runResult, context, cancellationToken);
+                result.Expected = $"text contains '{assertion.Text}'";
+                result.Actual = logContent.Contains(assertion.Text, StringComparison.Ordinal) ? assertion.Text : "not found";
+                result.Passed = logContent.Contains(assertion.Text, StringComparison.Ordinal);
+                break;
+            case "jsonequals":
+                var jsonContent = await ReadAssertionTextAsync(assertion, runResult, context, cancellationToken);
+                result.Expected = assertion.Expected;
+                result.Actual = ReadJsonSelector(jsonContent, assertion.Selector);
+                result.Passed = string.Equals(result.Actual, assertion.Expected, StringComparison.Ordinal);
+                break;
             default:
                 result.Expected = "supported assertion type";
                 result.Actual = assertion.Type;
@@ -473,6 +540,57 @@ public sealed class ScenarioRunner
         }
 
         return result;
+    }
+
+    private async Task<string> ReadAssertionTextAsync(ScenarioAssertion assertion, RunResult runResult, RunContext context, CancellationToken cancellationToken)
+    {
+        var path = assertion.Path;
+        if (string.IsNullOrWhiteSpace(path) && assertion.Type.Equals("logContains", StringComparison.OrdinalIgnoreCase))
+        {
+            path = runResult.AppStatus?.LogPath ?? string.Empty;
+        }
+
+        if (File.Exists(path))
+        {
+            return await File.ReadAllTextAsync(path, cancellationToken);
+        }
+
+        var runRelativePath = Path.Combine(runResult.Artifacts.RunDirectory, path);
+        if (File.Exists(runRelativePath))
+        {
+            return await File.ReadAllTextAsync(runRelativePath, cancellationToken);
+        }
+
+        var scenarioDirectory = Path.GetDirectoryName(Path.GetFullPath(context.SourceScenarioPath));
+        if (!string.IsNullOrWhiteSpace(scenarioDirectory))
+        {
+            var scenarioRelativePath = Path.Combine(scenarioDirectory, path);
+            if (File.Exists(scenarioRelativePath))
+            {
+                return await File.ReadAllTextAsync(scenarioRelativePath, cancellationToken);
+            }
+        }
+
+        var file = await automationClient.SendAsync<EnvironmentFileResult>(
+            "environment_read_file",
+            new EnvironmentFileParams { ProfileId = context.Scenario.Environment.ProfileId, Path = path },
+            cancellationToken: cancellationToken);
+        return file.Content;
+    }
+
+    private static string ReadJsonSelector(string json, string selector)
+    {
+        using var document = JsonDocument.Parse(json);
+        var current = document.RootElement;
+        foreach (var segment in selector.Trim().TrimStart('$').TrimStart('.').Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!current.TryGetProperty(segment, out current))
+            {
+                return string.Empty;
+            }
+        }
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() ?? string.Empty : current.ToString();
     }
 
     private async Task EvaluateScreenshotBaselineAssertionAsync(

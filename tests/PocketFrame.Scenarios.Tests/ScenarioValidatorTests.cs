@@ -163,4 +163,58 @@ public sealed class ScenarioValidatorTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.Contains("durationMs", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void ValidateAcceptsAppLifecycleAndSemanticAssertions()
+    {
+        var scenario = new ScenarioDefinition
+        {
+            Name = "app-lifecycle",
+            DeviceId = "cardputer-zero",
+            Connection = new ScenarioConnection { Host = "127.0.0.1", Port = 5910 },
+            Captures = new ScenarioCaptureOptions { OutputDir = "runs/app-lifecycle" },
+            Run = new ScenarioRunOptions { WorkingDir = "runs/app-lifecycle" },
+            Environment = new ScenarioEnvironment { ProfileId = "wsl-ubuntu" },
+            App = new ScenarioApp
+            {
+                Id = "lofibox",
+                Command = "./lofibox",
+                WorkingDirectory = "/home/user/lofibox",
+                ProcessMatch = "lofibox",
+                LogPath = ".tmp/lofibox.log",
+                ClearPaths = { ".tmp/state", ".tmp/cache" },
+                Env = { ["XDG_STATE_HOME"] = ".tmp/state" },
+                KillBeforeLaunch = true,
+                CleanupOnFinish = true
+            },
+            Assertions =
+            {
+                new ScenarioAssertion { Id = "log-main", Type = "logContains", Text = "page=MainMenu" },
+                new ScenarioAssertion { Id = "json-page", Type = "jsonEquals", Path = "lofibox-state.json", Selector = "page", Expected = "MainMenu" }
+            }
+        };
+
+        var result = new ScenarioValidator().Validate(scenario);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateRejectsAppLifecycleWithoutEnvironmentProfile()
+    {
+        var scenario = new ScenarioDefinition
+        {
+            Name = "bad-app",
+            DeviceId = "cardputer-zero",
+            Connection = new ScenarioConnection { Host = "127.0.0.1", Port = 5910 },
+            Captures = new ScenarioCaptureOptions { OutputDir = "runs/bad-app" },
+            Run = new ScenarioRunOptions { WorkingDir = "runs/bad-app" },
+            App = new ScenarioApp { Id = "lofibox", KillBeforeLaunch = true }
+        };
+
+        var result = new ScenarioValidator().Validate(scenario);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.Contains("environment.profileId", StringComparison.OrdinalIgnoreCase));
+    }
 }

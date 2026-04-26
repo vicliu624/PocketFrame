@@ -3,6 +3,7 @@
 Scenarios describe repeatable automation runs. They are intentionally small and do not replace the GUI, MCP server, VNC client, target environment adapters, or device profiles.
 
 Scenarios can also describe target environment preparation, including pre-commands, post-commands, and VNC lifecycle.
+They can also describe a target app lifecycle harness so a run can kill stale app processes, clear state/cache paths, launch the app, record process evidence, and tail logs.
 
 The goal is to give future CLI, MCP, report, and CI workflows a shared run description:
 
@@ -46,6 +47,21 @@ The project currently provides:
   "run": {
     "workingDir": "runs/cardputer-zero-openbox",
     "captureOnFailure": true
+  },
+  "app": {
+    "id": "lofibox",
+    "killBeforeLaunch": true,
+    "command": "DISPLAY=:10 ./lofibox",
+    "workingDirectory": "/home/user/lofibox",
+    "processMatch": "lofibox",
+    "binaryPath": "/home/user/lofibox/target/debug/lofibox",
+    "clearPaths": [".tmp/state", ".tmp/cache"],
+    "env": {
+      "XDG_STATE_HOME": ".tmp/state",
+      "XDG_CACHE_HOME": ".tmp/cache",
+      "LOFIBOX_RUNTIME_LOG_PATH": ".tmp/lofibox.log"
+    },
+    "logPath": ".tmp/lofibox.log"
   }
 }
 ```
@@ -127,6 +143,8 @@ Supported first-version assertions:
 - `actionFailed`
 - `allActionsSucceeded`
 - `screenshotMatchesBaseline`
+- `logContains`
+- `jsonEquals`
 
 Example:
 
@@ -169,6 +187,64 @@ Baselines can be created or approved from actual screenshots:
 ```bash
 pocketframe scenario run scenarios/cardputer-zero-openbox-smoke.json --update-baselines
 ```
+
+Semantic assertions can read target-side files through the configured environment profile. Prefer these for app state that is better expressed as logs or JSON snapshots than as pixels.
+
+```json
+{
+  "id": "main-menu-log",
+  "type": "logContains",
+  "path": ".tmp/lofibox.log",
+  "text": "page=MainMenu"
+}
+```
+
+If `path` is omitted for `logContains`, the runner uses `app.logPath`.
+
+```json
+{
+  "id": "main-menu-json",
+  "type": "jsonEquals",
+  "path": ".tmp/lofibox-state.json",
+  "selector": "page",
+  "expected": "MainMenu"
+}
+```
+
+`jsonEquals` supports a simple dot selector such as `page` or `player.state`. It intentionally avoids becoming a full query language.
+
+## App Lifecycle Harness
+
+The optional `app` section belongs to the target environment, not the simulator shell. It is a run harness for the target app under test.
+
+```json
+{
+  "app": {
+    "id": "lofibox",
+    "killBeforeLaunch": true,
+    "command": "DISPLAY=:10 ./lofibox",
+    "workingDirectory": "/home/user/lofibox",
+    "processMatch": "lofibox",
+    "binaryPath": "/home/user/lofibox/target/debug/lofibox",
+    "clearPaths": [".tmp/state", ".tmp/cache"],
+    "env": {
+      "XDG_STATE_HOME": ".tmp/state",
+      "XDG_CACHE_HOME": ".tmp/cache",
+      "LOFIBOX_RUNTIME_LOG_PATH": ".tmp/lofibox.log"
+    },
+    "logPath": ".tmp/lofibox.log",
+    "cleanupOnFinish": false
+  }
+}
+```
+
+Runner behavior:
+
+- `clearPaths` are removed before launch;
+- `killBeforeLaunch` sends a process kill using `processMatch` or `id`;
+- `command` launches the app in the target environment and writes logs to `logPath`;
+- app status is recorded to `app-status.json`;
+- `cleanupOnFinish` can kill the app after assertions finish.
 
 ## Failure Captures
 
@@ -214,6 +290,7 @@ runs/<scenario-name>/<timestamp>/
   scenario.json
   state.json
   action-trace.json
+  app-status.json
   screenshots/
     initial-screen.png
     initial-device.png

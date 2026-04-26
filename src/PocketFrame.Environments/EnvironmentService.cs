@@ -223,6 +223,103 @@ public sealed class EnvironmentService : IEnvironmentService
         };
     }
 
+    public async Task<EnvironmentAppStatusResult> GetAppStatusAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default)
+    {
+        var profile = await ResolveAsync(parameters.ProfileId, cancellationToken);
+        var match = !string.IsNullOrWhiteSpace(parameters.ProcessMatch)
+            ? parameters.ProcessMatch
+            : !string.IsNullOrWhiteSpace(parameters.Id)
+                ? parameters.Id
+                : !string.IsNullOrWhiteSpace(parameters.BinaryPath)
+                    ? parameters.BinaryPath
+                    : parameters.Command;
+        var binary = parameters.BinaryPath;
+        var pidLookup = string.IsNullOrWhiteSpace(match)
+            ? "pid=''"
+            : $"pid=$(pgrep -f {ShellQuote(match)} | head -n1 || true)";
+        var command = $"{pidLookup}; if [ -n \"$pid\" ]; then echo PID=$pid; echo CWD=$(readlink /proc/$pid/cwd 2>/dev/null || true); tr '\\0' ' ' < /proc/$pid/cmdline 2>/dev/null | sed 's/^/CMD=/'; echo; fi; if [ -n {ShellQuote(binary)} ]; then stat -c 'BIN_MTIME=%y' {ShellQuote(binary)} 2>/dev/null || true; fi";
+        var result = await ExecuteProfileCommandAsync(profile, command, parameters.WorkingDirectory, parameters.TimeoutMs <= 0 ? profile.CommandTimeoutMs : parameters.TimeoutMs, string.Empty, cancellationToken);
+        var lines = result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var pidLine = lines.FirstOrDefault(line => line.StartsWith("PID=", StringComparison.Ordinal));
+        int.TryParse(pidLine?["PID=".Length..], out var pid);
+        return new EnvironmentAppStatusResult
+        {
+            ProfileId = profile.Id,
+            Id = parameters.Id,
+            Running = pid > 0,
+            Pid = pid > 0 ? pid : null,
+            Cwd = Value(lines, "CWD="),
+            Command = Value(lines, "CMD="),
+            BinaryPath = binary,
+            BinaryMtime = Value(lines, "BIN_MTIME="),
+            LogPath = parameters.LogPath,
+            StateDir = parameters.Env.TryGetValue("XDG_STATE_HOME", out var stateDir) ? stateDir : string.Empty
+        };
+    }
+
+    public async Task<EnvironmentOperationResult> KillAppAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default) =>
+        await KillProcessAsync(new EnvironmentKillProcessParams { ProfileId = parameters.ProfileId, Match = !string.IsNullOrWhiteSpace(parameters.ProcessMatch) ? parameters.ProcessMatch : parameters.Id, Signal = "TERM", TimeoutMs = parameters.TimeoutMs }, cancellationToken);
+
+    public async Task<EnvironmentLaunchResult> LaunchAppAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default)
+    {
+        if (parameters.KillBeforeLaunch)
+        {
+            await KillAppAsync(parameters, cancellationToken);
+        }
+
+        if (parameters.ClearPaths.Count > 0)
+        {
+            await CleanAppStateAsync(parameters, cancellationToken);
+        }
+
+        return await LaunchAsync(new EnvironmentLaunchParams { ProfileId = parameters.ProfileId, Command = parameters.Command, WorkingDirectory = parameters.WorkingDirectory, LogPath = parameters.LogPath, Env = parameters.Env, TimeoutMs = parameters.TimeoutMs }, cancellationToken);
+    }
+
+    public async Task<EnvironmentOperationResult> CleanAppStateAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default)
+    {
+        if (parameters.ClearPaths.Count == 0)
+        {
+            return new EnvironmentOperationResult { Ok = true, Message = "No app state paths configured." };
+        }
+
+        var profile = await ResolveAsync(parameters.ProfileId, cancellationToken);
+        var paths = string.Join(' ', parameters.ClearPaths.Select(ShellQuote));
+        var result = await ExecuteProfileCommandAsync(profile, $"rm -rf -- {paths}", parameters.WorkingDirectory, parameters.TimeoutMs <= 0 ? profile.CommandTimeoutMs : parameters.TimeoutMs, string.Empty, cancellationToken);
+        return Operation(result.ExitCode == 0, result.ExitCode == 0 ? "App state cleaned." : "Failed to clean app state.", result);
+    }
+
+    public Task<EnvironmentFileResult> TailAppLogAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default) =>
+        TailFileAsync(new EnvironmentTailFileParams { ProfileId = parameters.ProfileId, Path = parameters.LogPath, Lines = 120, TimeoutMs = parameters.TimeoutMs }, cancellationToken);
+
+    public async Task<EnvironmentInputDevicesResult> GetInputDevicesAsync(EnvironmentCommandParams parameters, CancellationToken cancellationToken = default)
+    {
+        var profile = await ResolveAsync(parameters.ProfileId, cancellationToken);
+        var command = "for f in /dev/input/event*; do [ -e \"$f\" ] || continue; name=$(cat /sys/class/input/$(basename $f)/device/name 2>/dev/null || true); echo \"$f|$name\"; done";
+        var result = await ExecuteProfileCommandAsync(profile, command, parameters.WorkingDirectory, parameters.TimeoutMs <= 0 ? profile.CommandTimeoutMs : parameters.TimeoutMs, string.Empty, cancellationToken);
+        return new EnvironmentInputDevicesResult
+        {
+            Devices = result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => line.Split('|', 2))
+                .Select(parts => new EnvironmentInputDevice { Path = parts[0], Name = parts.Length > 1 ? parts[1] : string.Empty })
+                .ToList()
+        };
+    }
+
+    public async Task<EnvironmentEvdevCaptureResult> CaptureEvdevAsync(EnvironmentEvdevCaptureParams parameters, CancellationToken cancellationToken = default)
+    {
+        var profile = await ResolveAsync(parameters.ProfileId, cancellationToken);
+        var duration = Math.Max(1, parameters.DurationMs) / 1000.0;
+        var command = $"timeout {duration:0.###}s evtest {ShellQuote(parameters.Device)} 2>&1 || true";
+        var result = await ExecuteProfileCommandAsync(profile, command, string.Empty, parameters.TimeoutMs <= 0 ? Math.Max(parameters.DurationMs + 2000, 5000) : parameters.TimeoutMs, string.Empty, cancellationToken);
+        return new EnvironmentEvdevCaptureResult
+        {
+            Device = parameters.Device,
+            Events = result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(line => line.Contains("EV_KEY", StringComparison.OrdinalIgnoreCase) || line.Contains("KEY_", StringComparison.OrdinalIgnoreCase))
+                .ToList()
+        };
+    }
+
     private async Task<EnvironmentProfile> ResolveAsync(string profileId, CancellationToken cancellationToken) =>
         await profileService.ResolveAsync(profileId, cancellationToken: cancellationToken);
 
@@ -292,6 +389,9 @@ public sealed class EnvironmentService : IEnvironmentService
 
         return null;
     }
+
+    private static string Value(IEnumerable<string> lines, string prefix) =>
+        lines.FirstOrDefault(line => line.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..] ?? string.Empty;
 
     private static int Timeout(EnvironmentVncParams parameters, EnvironmentProfile profile) =>
         parameters.TimeoutMs <= 0 ? profile.CommandTimeoutMs : parameters.TimeoutMs;

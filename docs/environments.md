@@ -58,6 +58,10 @@ Supported operations:
 - install apt packages;
 - launch an app in the background and capture its log path;
 - tail a log file.
+- inspect, kill, clean, launch, and tail logs for a named target app profile;
+- list target Linux evdev input devices and capture a short evdev event window.
+
+Evdev observation is intentionally separate from simulator input injection. PocketFrame can send VNC key events, but VNC-injected keys may not appear on `/dev/input/event*`. Use evdev capture only as target-side evidence when the tested environment provides real input devices or an explicit evdev bridge.
 
 ## Scenario Integration
 
@@ -92,6 +96,35 @@ Scenarios can declare an environment:
 
 When `prepare` is enabled, `scenario run` can prepare the target environment before it prepares the app-side device and VNC connection.
 
+Scenarios can also declare a target app lifecycle harness:
+
+```json
+{
+  "app": {
+    "id": "lofibox",
+    "killBeforeLaunch": true,
+    "command": "DISPLAY=:10 ./lofibox",
+    "workingDirectory": "/home/user/lofibox",
+    "processMatch": "lofibox",
+    "binaryPath": "/home/user/lofibox/target/debug/lofibox",
+    "clearPaths": [".tmp/state", ".tmp/cache"],
+    "env": {
+      "XDG_STATE_HOME": ".tmp/state",
+      "XDG_CACHE_HOME": ".tmp/cache",
+      "LOFIBOX_RUNTIME_LOG_PATH": ".tmp/lofibox.log"
+    },
+    "logPath": ".tmp/lofibox.log"
+  }
+}
+```
+
+The runner executes the harness before framebuffer actions:
+
+1. remove configured state/cache paths;
+2. kill the old app process when requested;
+3. launch the app command in the target environment;
+4. record `app-status.json` with PID, cwd, command line, binary mtime, log path, and state directory.
+
 ## Safety Model
 
 Environment automation is intentionally explicit:
@@ -102,4 +135,3 @@ Environment automation is intentionally explicit:
 - environment commands are added to run reports;
 - passwords and VNC secrets should not be written into scenario files or command output;
 - future adapters can add allowlists or approval policies without changing scenario semantics.
-

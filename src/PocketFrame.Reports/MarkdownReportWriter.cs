@@ -36,6 +36,7 @@ public sealed class MarkdownReportWriter
         builder.AppendLine($"- Environment: `{report.Scenario?.Environment.ProfileId ?? "none"}`");
         builder.AppendLine();
         AppendEnvironmentCommands(builder, report);
+        AppendInputAudit(builder, report);
         builder.AppendLine("## Current State");
         builder.AppendLine();
         builder.AppendLine($"- Connected: `{report.State?.Connected.ToString() ?? "unknown"}`");
@@ -164,6 +165,48 @@ public sealed class MarkdownReportWriter
 
         builder.AppendLine();
     }
+
+    private static void AppendInputAudit(StringBuilder builder, AutomationRunReport report)
+    {
+        var inputs = report.Trace
+            .Where(entry => entry.Method is "press_key" or "press_button" && entry.Result is not null)
+            .ToList();
+        if (inputs.Count == 0)
+        {
+            return;
+        }
+
+        builder.AppendLine("## Input Audit");
+        builder.AppendLine();
+        builder.AppendLine("| Step | Method | Layer | Requested | Resolved | Emitted | Warning |");
+        builder.AppendLine("| ---: | --- | --- | --- | --- | --- | --- |");
+        for (var index = 0; index < inputs.Count; index++)
+        {
+            var json = System.Text.Json.JsonSerializer.SerializeToElement(inputs[index].Result);
+            var requested = Read(json, "requestedButtonId");
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                requested = Read(json, "requestedKey");
+            }
+
+            var warnings = json.TryGetProperty("warnings", out var warningElement) && warningElement.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? string.Join("<br>", warningElement.EnumerateArray().Select(item => Escape(item.GetString() ?? string.Empty)))
+                : string.Empty;
+            var emitted = $"{Escape(Read(json, "emittedTransport"))}:{Escape(Read(json, "emittedKey"))}";
+            var keysym = Read(json, "emittedKeysym");
+            if (!string.IsNullOrWhiteSpace(keysym))
+            {
+                emitted += $" `{Escape(keysym)}`";
+            }
+
+            builder.AppendLine($"| {index + 1} | `{inputs[index].Method}` | `{Escape(Read(json, "inputLayer"))}` | `{Escape(requested)}` | `{Escape(Read(json, "resolvedKey"))}` | {emitted} | {warnings} |");
+        }
+
+        builder.AppendLine();
+    }
+
+    private static string Read(System.Text.Json.JsonElement json, string name) =>
+        json.TryGetProperty(name, out var value) ? value.GetString() ?? string.Empty : string.Empty;
 
     private static void AppendImage(StringBuilder builder, string label, string path)
     {

@@ -6,7 +6,8 @@
              Focusable="True">
   <Border BorderBrush="#1bc7ff" BorderThickness="1" Background="#05070a" ClipToBounds="True">
     <Grid>
-      <views:VncFramebufferView Framebuffer="{Binding Vnc.Framebuffer}" />
+      <views:VncFramebufferView Framebuffer="{Binding Vnc.Framebuffer}"
+                                FrameVersion="{Binding Vnc.FrameVersion}" />
       <TextBlock Text="VNC framebuffer" Foreground="#70ffffff" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding Vnc.ShowPlaceholder}" />
     </Grid>
   </Border>

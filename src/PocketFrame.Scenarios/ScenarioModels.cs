@@ -16,6 +16,9 @@ public sealed class ScenarioDefinition
     [JsonPropertyName("environment")]
     public ScenarioEnvironment Environment { get; set; } = new();
 
+    [JsonPropertyName("app")]
+    public ScenarioApp App { get; set; } = new();
+
     [JsonPropertyName("scale")]
     public double Scale { get; set; } = 1;
 
@@ -99,6 +102,39 @@ public sealed class ScenarioEnvironmentCommand
 
     [JsonPropertyName("continueOnFailure")]
     public bool ContinueOnFailure { get; set; }
+}
+
+public sealed class ScenarioApp
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("killBeforeLaunch")]
+    public bool KillBeforeLaunch { get; set; }
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = string.Empty;
+
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = string.Empty;
+
+    [JsonPropertyName("processMatch")]
+    public string ProcessMatch { get; set; } = string.Empty;
+
+    [JsonPropertyName("binaryPath")]
+    public string BinaryPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("clearPaths")]
+    public List<string> ClearPaths { get; set; } = [];
+
+    [JsonPropertyName("env")]
+    public Dictionary<string, string> Env { get; set; } = [];
+
+    [JsonPropertyName("logPath")]
+    public string LogPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("cleanupOnFinish")]
+    public bool CleanupOnFinish { get; set; }
 }
 
 public sealed class ScenarioCaptureOptions
@@ -186,6 +222,18 @@ public sealed class ScenarioAssertion
 
     [JsonPropertyName("expectedHash")]
     public string ExpectedHash { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("selector")]
+    public string Selector { get; set; } = string.Empty;
+
+    [JsonPropertyName("expected")]
+    public string Expected { get; set; } = string.Empty;
+
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = string.Empty;
 
     [JsonPropertyName("regions")]
     public List<ScenarioRegion> Regions { get; set; } = [];

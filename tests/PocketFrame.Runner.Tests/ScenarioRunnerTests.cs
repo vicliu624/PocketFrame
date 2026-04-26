@@ -319,6 +319,73 @@ public sealed class ScenarioRunnerTests
         Assert.Equal(3000, frameChangeParams.TimeoutMs);
     }
 
+    [Fact]
+    public async Task RunPreparesScenarioAppAndWritesStatus()
+    {
+        using var directory = new TemporaryDirectory();
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "app-run",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Environment = new ScenarioEnvironment { ProfileId = "test-env" },
+            App = new ScenarioApp
+            {
+                Id = "lofibox",
+                Command = "./lofibox",
+                WorkingDirectory = "/home/user/lofibox",
+                ProcessMatch = "lofibox",
+                LogPath = ".tmp/lofibox.log",
+                ClearPaths = { ".tmp/state", ".tmp/cache" },
+                Env = { ["XDG_STATE_HOME"] = ".tmp/state" },
+                KillBeforeLaunch = true
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(result.Artifacts.AppStatusPath));
+        Assert.Contains(client.Methods, method => method == "environment_app_clean_state");
+        Assert.Contains(client.Methods, method => method == "environment_app_kill");
+        Assert.Contains(client.Methods, method => method == "environment_app_launch");
+        Assert.Contains(client.Methods, method => method == "environment_app_status");
+        Assert.True(result.AppStatus?.Running);
+    }
+
+    [Fact]
+    public async Task RunEvaluatesLogAndJsonAssertions()
+    {
+        using var directory = new TemporaryDirectory();
+        var jsonPath = Path.Combine(directory.Path, "lofibox-state.json");
+        await File.WriteAllTextAsync(jsonPath, """{ "page": "MainMenu" }""");
+        var scenarioPath = await WriteScenarioAsync(directory.Path, new ScenarioDefinition
+        {
+            Name = "semantic-assertions",
+            DeviceId = "cardputer-zero",
+            Run = new ScenarioRunOptions { WorkingDir = Path.Combine(directory.Path, "runs") },
+            Captures = new ScenarioCaptureOptions { OutputDir = Path.Combine(directory.Path, "runs") },
+            Environment = new ScenarioEnvironment { ProfileId = "test-env" },
+            App = new ScenarioApp { Id = "lofibox", LogPath = ".tmp/lofibox.log" },
+            Assertions =
+            {
+                new ScenarioAssertion { Id = "log-page", Type = "logContains", Text = "page=MainMenu" },
+                new ScenarioAssertion { Id = "json-page", Type = "jsonEquals", Path = jsonPath, Selector = "page", Expected = "MainMenu" }
+            }
+        });
+        var client = new FakeAutomationClient(new AutomationState { Connected = true, DeviceId = "cardputer-zero" });
+        var runner = CreateRunner(client);
+
+        var result = await runner.RunAsync(scenarioPath);
+
+        Assert.True(result.Success);
+        Assert.All(result.Assertions, assertion => Assert.True(assertion.Passed));
+        Assert.Contains(client.Methods, method => method == "environment_read_file");
+    }
+
     private static ScenarioRunner CreateRunner(IAutomationClient client) =>
         new(new ScenarioLoader(), new ScenarioValidator(), client, new MarkdownReportWriter());
 
@@ -360,6 +427,10 @@ public sealed class ScenarioRunnerTests
                 "environment_get_state" => new EnvironmentStateResult { ProfileId = "test-env", Available = true },
                 "environment_exec" => new EnvironmentCommandResult { ProfileId = "test-env", Command = "echo ready", ExitCode = 0 },
                 "environment_restart_vnc" or "environment_start_vnc" or "environment_stop_vnc" => new EnvironmentOperationResult { Ok = true, Message = method, Command = new EnvironmentCommandResult { ProfileId = "test-env", Command = method, ExitCode = 0 } },
+                "environment_app_clean_state" or "environment_app_kill" => new EnvironmentOperationResult { Ok = true, Message = method, Command = new EnvironmentCommandResult { ProfileId = "test-env", Command = method, ExitCode = 0 } },
+                "environment_app_launch" => new EnvironmentLaunchResult { ProfileId = "test-env", Pid = 1234, Command = "./lofibox", WorkingDirectory = "/home/user/lofibox", LogPath = ".tmp/lofibox.log" },
+                "environment_app_status" => new EnvironmentAppStatusResult { ProfileId = "test-env", Id = "lofibox", Running = true, Pid = 1234, Cwd = "/home/user/lofibox", Command = "./lofibox", LogPath = ".tmp/lofibox.log", StateDir = ".tmp/state" },
+                "environment_read_file" => new EnvironmentFileResult { Path = parameters is EnvironmentFileParams fileParams ? fileParams.Path : string.Empty, Content = "page=MainMenu\n", Bytes = 14 },
                 "capture_screen" => await CaptureAsync(parameters),
                 "capture_device" => await CaptureAsync(parameters),
                 "type_text" or "press_key" or "press_button" or "click_screen" => Tap(),

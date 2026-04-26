@@ -31,6 +31,7 @@ public sealed class ScenarioValidator
         }
 
         ValidateEnvironment(scenario.Environment, errors);
+        ValidateApp(scenario.App, scenario.Environment, errors);
         if (string.IsNullOrWhiteSpace(scenario.Captures.OutputDir))
         {
             errors.Add("Scenario captures.outputDir is required.");
@@ -42,9 +43,47 @@ public sealed class ScenarioValidator
         }
 
         ValidateActions(scenario.Actions, errors);
-        ValidateAssertions(scenario.Assertions, errors);
+        ValidateAssertions(scenario.Assertions, scenario.App, errors);
 
         return new ScenarioValidationResult(errors.Count == 0, errors);
+    }
+
+    private static void ValidateApp(ScenarioApp app, ScenarioEnvironment environment, List<string> errors)
+    {
+        var hasAppSettings =
+            !string.IsNullOrWhiteSpace(app.Id) ||
+            !string.IsNullOrWhiteSpace(app.Command) ||
+            !string.IsNullOrWhiteSpace(app.ProcessMatch) ||
+            !string.IsNullOrWhiteSpace(app.BinaryPath) ||
+            !string.IsNullOrWhiteSpace(app.WorkingDirectory) ||
+            !string.IsNullOrWhiteSpace(app.LogPath) ||
+            app.ClearPaths.Count > 0 ||
+            app.Env.Count > 0 ||
+            app.KillBeforeLaunch ||
+            app.CleanupOnFinish;
+
+        if (!hasAppSettings)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(environment.ProfileId))
+        {
+            errors.Add("Scenario environment.profileId is required when app lifecycle settings are provided.");
+        }
+
+        if (string.IsNullOrWhiteSpace(app.Id) &&
+            string.IsNullOrWhiteSpace(app.Command) &&
+            string.IsNullOrWhiteSpace(app.ProcessMatch) &&
+            string.IsNullOrWhiteSpace(app.BinaryPath))
+        {
+            errors.Add("Scenario app requires at least one of id, command, processMatch, or binaryPath.");
+        }
+
+        if (app.CleanupOnFinish && string.IsNullOrWhiteSpace(app.ProcessMatch) && string.IsNullOrWhiteSpace(app.Id))
+        {
+            errors.Add("Scenario app.cleanupOnFinish requires app.id or app.processMatch.");
+        }
     }
 
     private static void ValidateEnvironment(ScenarioEnvironment environment, List<string> errors)
@@ -181,7 +220,7 @@ public sealed class ScenarioValidator
         }
     }
 
-    private static void ValidateAssertions(IReadOnlyList<ScenarioAssertion> assertions, List<string> errors)
+    private static void ValidateAssertions(IReadOnlyList<ScenarioAssertion> assertions, ScenarioApp app, List<string> errors)
     {
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < assertions.Count; index++)
@@ -229,6 +268,19 @@ public sealed class ScenarioValidator
                     Require(assertion.AfterAction, $"{assertionName}.afterAction is required.", errors);
                     break;
                 case "allactionssucceeded":
+                    break;
+                case "logcontains":
+                    if (string.IsNullOrWhiteSpace(assertion.Path) && string.IsNullOrWhiteSpace(app.LogPath))
+                    {
+                        errors.Add($"{assertionName}.path is required unless app.logPath is configured.");
+                    }
+
+                    Require(assertion.Text, $"{assertionName}.text is required.", errors);
+                    break;
+                case "jsonequals":
+                    Require(assertion.Path, $"{assertionName}.path is required.", errors);
+                    Require(assertion.Selector, $"{assertionName}.selector is required.", errors);
+                    Require(assertion.Expected, $"{assertionName}.expected is required.", errors);
                     break;
                 default:
                     errors.Add($"{assertionName}.type is unsupported: {assertion.Type}");

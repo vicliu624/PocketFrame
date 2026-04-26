@@ -317,6 +317,120 @@ public sealed class EnvironmentLaunchResult
     public string LogPath { get; set; } = string.Empty;
 }
 
+public sealed class EnvironmentAppParams
+{
+    [JsonPropertyName("profileId")]
+    public string ProfileId { get; set; } = string.Empty;
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("processMatch")]
+    public string ProcessMatch { get; set; } = string.Empty;
+
+    [JsonPropertyName("binaryPath")]
+    public string BinaryPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = string.Empty;
+
+    [JsonPropertyName("workingDirectory")]
+    public string WorkingDirectory { get; set; } = string.Empty;
+
+    [JsonPropertyName("logPath")]
+    public string LogPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("clearPaths")]
+    public List<string> ClearPaths { get; set; } = [];
+
+    [JsonPropertyName("env")]
+    public Dictionary<string, string> Env { get; set; } = [];
+
+    [JsonPropertyName("killBeforeLaunch")]
+    public bool KillBeforeLaunch { get; set; }
+
+    [JsonPropertyName("timeoutMs")]
+    public int TimeoutMs { get; set; } = 10000;
+}
+
+public sealed class EnvironmentAppStatusResult
+{
+    [JsonPropertyName("profileId")]
+    public string ProfileId { get; set; } = string.Empty;
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("running")]
+    public bool Running { get; set; }
+
+    [JsonPropertyName("pid")]
+    public int? Pid { get; set; }
+
+    [JsonPropertyName("cwd")]
+    public string Cwd { get; set; } = string.Empty;
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = string.Empty;
+
+    [JsonPropertyName("binaryPath")]
+    public string BinaryPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("binaryMtime")]
+    public string BinaryMtime { get; set; } = string.Empty;
+
+    [JsonPropertyName("logPath")]
+    public string LogPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("stateDir")]
+    public string StateDir { get; set; } = string.Empty;
+}
+
+public sealed class EnvironmentInputDevicesResult
+{
+    [JsonPropertyName("devices")]
+    public List<EnvironmentInputDevice> Devices { get; set; } = [];
+
+    [JsonPropertyName("warning")]
+    public string Warning { get; set; } = "This observes target Linux evdev devices. VNC-injected keys may not appear here.";
+}
+
+public sealed class EnvironmentInputDevice
+{
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+public sealed class EnvironmentEvdevCaptureParams
+{
+    [JsonPropertyName("profileId")]
+    public string ProfileId { get; set; } = string.Empty;
+
+    [JsonPropertyName("device")]
+    public string Device { get; set; } = string.Empty;
+
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; } = 1000;
+
+    [JsonPropertyName("timeoutMs")]
+    public int TimeoutMs { get; set; } = 5000;
+}
+
+public sealed class EnvironmentEvdevCaptureResult
+{
+    [JsonPropertyName("device")]
+    public string Device { get; set; } = string.Empty;
+
+    [JsonPropertyName("events")]
+    public List<string> Events { get; set; } = [];
+
+    [JsonPropertyName("warning")]
+    public string Warning { get; set; } = "This observes target Linux evdev events. VNC-injected keys may not appear here.";
+}
+
 public sealed class EnvironmentTailFileParams
 {
     [JsonPropertyName("profileId")]

@@ -15,4 +15,11 @@ public interface IEnvironmentService
     Task<EnvironmentOperationResult> InstallPackagesAsync(EnvironmentInstallPackagesParams parameters, CancellationToken cancellationToken = default);
     Task<EnvironmentLaunchResult> LaunchAsync(EnvironmentLaunchParams parameters, CancellationToken cancellationToken = default);
     Task<EnvironmentFileResult> TailFileAsync(EnvironmentTailFileParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentAppStatusResult> GetAppStatusAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentOperationResult> KillAppAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentLaunchResult> LaunchAppAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentOperationResult> CleanAppStateAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentFileResult> TailAppLogAsync(EnvironmentAppParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentInputDevicesResult> GetInputDevicesAsync(EnvironmentCommandParams parameters, CancellationToken cancellationToken = default);
+    Task<EnvironmentEvdevCaptureResult> CaptureEvdevAsync(EnvironmentEvdevCaptureParams parameters, CancellationToken cancellationToken = default);
 }

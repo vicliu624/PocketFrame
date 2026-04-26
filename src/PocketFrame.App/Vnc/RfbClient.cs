@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Net.Sockets;
 using System.Text;
-using PocketFrame.App.Utils;
 
 namespace PocketFrame.App.Vnc;
 
@@ -11,7 +10,6 @@ public sealed class RfbClient : IAsyncDisposable
     private NetworkStream? stream;
     private CancellationTokenSource? receiveCts;
     private readonly SemaphoreSlim writeLock = new(1, 1);
-    private long framebufferUpdateCount;
 
     public event EventHandler<RfbFramebuffer>? FramebufferUpdated;
     public event EventHandler<string>? StatusChanged;
@@ -31,6 +29,7 @@ public sealed class RfbClient : IAsyncDisposable
             await DisconnectAsync();
             StatusChanged?.Invoke(this, $"Connecting {host}:{port}");
             tcpClient = new TcpClient();
+            tcpClient.NoDelay = true;
             await tcpClient.ConnectAsync(host, port, cancellationToken).AsTask().WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
             stream = tcpClient.GetStream();
 
@@ -327,9 +326,7 @@ public sealed class RfbClient : IAsyncDisposable
             }
         }
 
-        var updateNumber = Interlocked.Increment(ref framebufferUpdateCount);
-        InputDiagnostics.Write("VNC", $"Framebuffer update #{updateNumber}: {count} rect(s)");
-        FramebufferUpdated?.Invoke(this, Framebuffer!.CloneSnapshot());
+        FramebufferUpdated?.Invoke(this, Framebuffer!);
     }
 
     private async Task ReadHextileRectangleAsync(int x, int y, int width, int height, CancellationToken cancellationToken)

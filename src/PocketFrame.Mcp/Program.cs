@@ -93,8 +93,8 @@ internal sealed class PocketFrameMcpServer
         tools = new object[]
         {
             Tool("pocketframe_get_state", "Get the current PocketFrame device, VNC, and framebuffer state.", new JsonObject()),
-            Tool("pocketframe_get_input_model", "Get AI-readable physical buttons, keyboard keys, layers, and key actions for the selected device.", new JsonObject()),
-            Tool("pocketframe_get_keyboard_state", "Get currently latched keyboard layers such as fn, sym, shift, ctrl, or alt.", new JsonObject()),
+            Tool("pocketframe_get_input_model", "Get PocketFrame device-profile input projections. These describe simulator shell/profile mappings, not target Linux evdev KEY_* truth.", new JsonObject()),
+            Tool("pocketframe_get_keyboard_state", "Get currently latched PocketFrame profile layers such as fn, sym, shift, ctrl, or alt. These are simulator latch states, not target Linux evdev state.", new JsonObject()),
             Tool("pocketframe_get_profiles", "List available PocketFrame device profiles.", new JsonObject()),
             Tool("pocketframe_get_connections", "List saved VNC connection profiles without exposing passwords.", new JsonObject()),
             Tool("pocketframe_select_device", "Select a device profile by id before connecting or running automation.", Properties(("deviceId", "string", "Device profile id.")), ["deviceId"]),
@@ -114,12 +114,19 @@ internal sealed class PocketFrameMcpServer
             Tool("pocketframe_environment_install_packages", "Install apt packages in the target environment without forcing the AI to hand-roll package commands.", Properties(("profileId", "string", "Optional environment profile id."), ("packages", "array", "Package names."), ("update", "boolean", "Run apt-get update first."), ("sudo", "boolean", "Use sudo. Defaults to true."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["packages"]),
             Tool("pocketframe_environment_launch", "Launch a target app in the environment as a background process and return pid plus log path.", Properties(("profileId", "string", "Optional environment profile id."), ("command", "string", "Command to launch."), ("workingDirectory", "string", "Optional working directory."), ("logPath", "string", "Optional log path."), ("timeoutMs", "integer", "Optional launch timeout.")), ["command"]),
             Tool("pocketframe_environment_tail_file", "Read the last lines of a target environment log file.", Properties(("profileId", "string", "Optional environment profile id."), ("path", "string", "Target environment file path."), ("lines", "integer", "Number of lines."), ("timeoutMs", "integer", "Optional timeout in milliseconds.")), ["path"]),
+            Tool("pocketframe_environment_app_status", "Inspect a target app by processMatch/binaryPath and return pid, cwd, command line, binary mtime, log path, and state dir.", AppProperties()),
+            Tool("pocketframe_environment_app_kill", "Kill a target app by processMatch. This is a lifecycle helper, not a VNC operation.", AppProperties()),
+            Tool("pocketframe_environment_app_launch", "Clean optional state, optionally kill old app processes, then launch a target app and return pid/log evidence.", AppProperties()),
+            Tool("pocketframe_environment_app_clean_state", "Remove configured target app state/cache paths before a run.", AppProperties()),
+            Tool("pocketframe_environment_app_tail_log", "Tail the configured target app log.", AppProperties()),
+            Tool("pocketframe_environment_input_devices", "List target Linux /dev/input/event* devices. This observes evdev devices; VNC-injected keys may not appear there.", Properties(("profileId", "string", "Optional environment profile id."))),
+            Tool("pocketframe_environment_evdev_capture", "Capture target Linux evdev output for a short duration. This observes target evdev events; VNC-injected keys may not appear here.", Properties(("profileId", "string", "Optional environment profile id."), ("device", "string", "Target /dev/input/event* path."), ("durationMs", "integer", "Capture duration in milliseconds."), ("timeoutMs", "integer", "Optional timeout.")), ["device"]),
             Tool("pocketframe_frame_hash", "Return the current framebuffer SHA-256 hash and frame index.", new JsonObject()),
             Tool("pocketframe_capture_screen", "Capture only the remote VNC screen area to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_capture_device", "Capture the rendered device shell and screen to a PNG file.", Properties(("outputPath", "string", "Optional output PNG path."))),
             Tool("pocketframe_type_text", "Type text into the active VNC session. Use newline characters for Enter.", Properties(("text", "string", "Text to type.")), ["text"]),
-            Tool("pocketframe_press_key", "Press a VNC key or key chord such as Enter, Escape, Ctrl+C, Up, Down, Left, Right.", Properties(("key", "string", "Key name or key chord.")), ["key"]),
-            Tool("pocketframe_press_button", "Press or hold a semantic device or virtual keyboard button such as ok, talk, next-home, fn, blue, keyboard-q, keyboard-z.", Properties(("buttonId", "string", "Device button id or virtual keyboard id."), ("durationMs", "integer", "Optional hold duration in milliseconds. Omit or use 0 for a short press.")), ["buttonId"]),
+            Tool("pocketframe_press_key", "Send a VNC logical key event or chord such as Enter, Escape, Ctrl+C, Up, Down, Left, Right. This is not Linux evdev KEY_* truth.", Properties(("key", "string", "Key name or key chord.")), ["key"]),
+            Tool("pocketframe_press_button", "Press or hold a PocketFrame device-profile button such as ok, talk, next-home, fn, blue, keyboard-q, keyboard-z. This is simulator shell/profile projection and does not prove target Linux evdev KEY_* events.", Properties(("buttonId", "string", "Device button id or virtual keyboard id."), ("durationMs", "integer", "Optional hold duration in milliseconds. Omit or use 0 for a short press.")), ["buttonId"]),
             Tool("pocketframe_click_screen", "Click a coordinate in the device screen/VNC coordinate space.", Properties(("x", "integer", "Screen X coordinate."), ("y", "integer", "Screen Y coordinate."), ("button", "string", "Pointer button: left, middle, or right.")), ["x", "y"]),
             Tool("pocketframe_wait", "Wait for a fixed duration without requiring framebuffer changes or stability.", Properties(("durationMs", "integer", "Wait duration in milliseconds.")), ["durationMs"]),
             Tool("pocketframe_wait_frame_change", "Wait until the VNC framebuffer frame index changes.", Properties(("afterFrame", "integer", "Optional frame index to wait after."), ("timeoutMs", "integer", "Timeout in milliseconds."))),
@@ -157,6 +164,13 @@ internal sealed class PocketFrameMcpServer
             "pocketframe_environment_install_packages" => await automationClient.SendAsync("environment_install_packages", ToParams<EnvironmentInstallPackagesParams>(arguments), timeoutMs: ReadTimeout(arguments, 120000)),
             "pocketframe_environment_launch" => await automationClient.SendAsync("environment_launch", ToParams<EnvironmentLaunchParams>(arguments), timeoutMs: ReadTimeout(arguments, 10000)),
             "pocketframe_environment_tail_file" => await automationClient.SendAsync("environment_tail_file", ToParams<EnvironmentTailFileParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_app_status" => await automationClient.SendAsync("environment_app_status", ToParams<EnvironmentAppParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_app_kill" => await automationClient.SendAsync("environment_app_kill", ToParams<EnvironmentAppParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_app_launch" => await automationClient.SendAsync("environment_app_launch", ToParams<EnvironmentAppParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_app_clean_state" => await automationClient.SendAsync("environment_app_clean_state", ToParams<EnvironmentAppParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_app_tail_log" => await automationClient.SendAsync("environment_app_tail_log", ToParams<EnvironmentAppParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_input_devices" => await automationClient.SendAsync("environment_input_devices", ToParams<EnvironmentCommandParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
+            "pocketframe_environment_evdev_capture" => await automationClient.SendAsync("environment_evdev_capture", ToParams<EnvironmentEvdevCaptureParams>(arguments), timeoutMs: ReadTimeout(arguments, 30000)),
             "pocketframe_frame_hash" => await automationClient.SendAsync("frame_hash"),
             "pocketframe_capture_screen" => await automationClient.SendAsync("capture_screen", ToCaptureParams(arguments)),
             "pocketframe_capture_device" => await automationClient.SendAsync("capture_device", ToCaptureParams(arguments)),
@@ -240,6 +254,19 @@ internal sealed class PocketFrameMcpServer
 
         return result;
     }
+
+    private static JsonObject AppProperties() => Properties(
+        ("profileId", "string", "Optional environment profile id."),
+        ("id", "string", "App id such as lofibox."),
+        ("processMatch", "string", "Process match pattern."),
+        ("binaryPath", "string", "Optional binary path for mtime evidence."),
+        ("command", "string", "Launch command."),
+        ("workingDirectory", "string", "App working directory."),
+        ("logPath", "string", "App log path."),
+        ("clearPaths", "array", "State/cache paths to remove."),
+        ("env", "object", "Environment variables."),
+        ("killBeforeLaunch", "boolean", "Kill matching app before launch."),
+        ("timeoutMs", "integer", "Optional timeout."));
 
     private static async Task WriteResponseAsync(JsonElement? id, object result)
     {

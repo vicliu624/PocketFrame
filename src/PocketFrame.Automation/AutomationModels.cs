@@ -121,6 +121,9 @@ public sealed class AutomationActionTraceEntry
     [JsonPropertyName("params")]
     public object? Params { get; set; }
 
+    [JsonPropertyName("result")]
+    public object? Result { get; set; }
+
     [JsonPropertyName("startedAt")]
     public DateTimeOffset StartedAt { get; set; }
 
@@ -192,6 +195,93 @@ public sealed class KeyPressParams
 {
     [JsonPropertyName("key")]
     public string Key { get; set; } = string.Empty;
+}
+
+public sealed class InputActionResult
+{
+    [JsonPropertyName("ok")]
+    public bool Ok { get; set; } = true;
+
+    [JsonPropertyName("requestedAction")]
+    public string RequestedAction { get; set; } = string.Empty;
+
+    [JsonPropertyName("requestedKey")]
+    public string RequestedKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("requestedButtonId")]
+    public string RequestedButtonId { get; set; } = string.Empty;
+
+    [JsonPropertyName("inputLayer")]
+    public string InputLayer { get; set; } = string.Empty;
+
+    [JsonPropertyName("activeLayersBefore")]
+    public List<string> ActiveLayersBefore { get; set; } = [];
+
+    [JsonPropertyName("activeLayersAfter")]
+    public List<string> ActiveLayersAfter { get; set; } = [];
+
+    [JsonPropertyName("resolved")]
+    public InputResolvedButton Resolved { get; set; } = new();
+
+    [JsonPropertyName("emitted")]
+    public List<InputEmittedEvent> Emitted { get; set; } = [];
+
+    [JsonPropertyName("resolvedKey")]
+    public string ResolvedKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("emittedTransport")]
+    public string EmittedTransport { get; set; } = string.Empty;
+
+    [JsonPropertyName("emittedKey")]
+    public string EmittedKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("emittedKeysym")]
+    public string EmittedKeysym { get; set; } = string.Empty;
+
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed class InputResolvedButton
+{
+    [JsonPropertyName("profileButtonId")]
+    public string ProfileButtonId { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("selectedLayer")]
+    public string SelectedLayer { get; set; } = string.Empty;
+
+    [JsonPropertyName("resolvedKey")]
+    public string ResolvedKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("sourceKey")]
+    public string SourceKey { get; set; } = string.Empty;
+}
+
+public sealed class InputEmittedEvent
+{
+    [JsonPropertyName("transport")]
+    public string Transport { get; set; } = "vnc";
+
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("keysym")]
+    public string Keysym { get; set; } = string.Empty;
+
+    [JsonPropertyName("phase")]
+    public string Phase { get; set; } = "tap";
+}
+
+public sealed class InputTruthWarning
+{
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
 }
 
 public sealed class ButtonPressParams

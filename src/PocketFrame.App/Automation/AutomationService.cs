@@ -209,6 +209,20 @@ public sealed class AutomationService : IAutomationService
 
     public Task<EnvironmentFileResult> TailEnvironmentFileAsync(EnvironmentTailFileParams parameters) =>
         environmentService.TailFileAsync(parameters);
+    public Task<EnvironmentAppStatusResult> GetEnvironmentAppStatusAsync(EnvironmentAppParams parameters) =>
+        environmentService.GetAppStatusAsync(parameters);
+    public Task<EnvironmentOperationResult> KillEnvironmentAppAsync(EnvironmentAppParams parameters) =>
+        environmentService.KillAppAsync(parameters);
+    public Task<EnvironmentLaunchResult> LaunchEnvironmentAppAsync(EnvironmentAppParams parameters) =>
+        environmentService.LaunchAppAsync(parameters);
+    public Task<EnvironmentOperationResult> CleanEnvironmentAppStateAsync(EnvironmentAppParams parameters) =>
+        environmentService.CleanAppStateAsync(parameters);
+    public Task<EnvironmentFileResult> TailEnvironmentAppLogAsync(EnvironmentAppParams parameters) =>
+        environmentService.TailAppLogAsync(parameters);
+    public Task<EnvironmentInputDevicesResult> GetEnvironmentInputDevicesAsync(EnvironmentCommandParams parameters) =>
+        environmentService.GetInputDevicesAsync(parameters);
+    public Task<EnvironmentEvdevCaptureResult> CaptureEnvironmentEvdevAsync(EnvironmentEvdevCaptureParams parameters) =>
+        environmentService.CaptureEvdevAsync(parameters);
 
     public Task<FrameHashResult> GetFrameHashAsync()
     {
@@ -289,7 +303,7 @@ public sealed class AutomationService : IAutomationService
         }
     }
 
-    public async Task PressKeyAsync(string key)
+    public async Task<InputActionResult> PressKeyAsync(string key)
     {
         RequireConnected();
         foreach (var part in key.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
@@ -321,9 +335,36 @@ public sealed class AutomationService : IAutomationService
         {
             await vncClientService.SendKeyAsync(modifier, false);
         }
+
+        return new InputActionResult
+        {
+            RequestedAction = "press_key",
+            RequestedKey = key,
+            InputLayer = "vnc-logical-key",
+            ResolvedKey = keys[^1],
+            EmittedTransport = "vnc",
+            EmittedKey = keys[^1],
+            EmittedKeysym = $"0x{mainKeysym:x}",
+            Emitted = keys.Select(part =>
+            {
+                var keysym = ParseKey(part);
+                return new InputEmittedEvent
+                {
+                    Transport = "vnc",
+                    Key = part,
+                    Keysym = keysym is null ? string.Empty : $"0x{keysym.Value:x}",
+                    Phase = part.Equals(keys[^1], StringComparison.OrdinalIgnoreCase) ? "tap" : "modifier"
+                };
+            }).ToList(),
+            Warnings =
+            {
+                "press_key sends a VNC logical key event.",
+                "VNC key events are not Linux evdev events."
+            }
+        };
     }
 
-    public async Task PressButtonAsync(ButtonPressParams parameters)
+    public async Task<InputActionResult> PressButtonAsync(ButtonPressParams parameters)
     {
         RequireConnected();
         if (string.IsNullOrWhiteSpace(parameters.ButtonId))
@@ -344,10 +385,10 @@ public sealed class AutomationService : IAutomationService
         var button = ResolveButton(parameters.ButtonId);
         if (parameters.DurationMs == 0 || IsRebootButton(button))
         {
-            await viewModel.DeviceShell.SendButtonAsync(button);
-            return;
+            return await viewModel.DeviceShell.SendButtonAsync(button);
         }
 
+        var activeLayersBefore = viewModel.DeviceShell.ActiveLayers.ToList();
         await viewModel.DeviceShell.BeginButtonPressAsync(button);
         try
         {
@@ -357,6 +398,38 @@ public sealed class AutomationService : IAutomationService
         {
             await viewModel.DeviceShell.EndButtonPressAsync(button);
         }
+
+        var resolvedKey = string.IsNullOrWhiteSpace(button.LongPressKeyCode) ? button.KeyCode : button.LongPressKeyCode;
+        var keysym = ParseKey(resolvedKey);
+        return new InputActionResult
+        {
+            RequestedAction = "press_button",
+            RequestedButtonId = parameters.ButtonId,
+            InputLayer = "pocketframe-profile",
+            ActiveLayersBefore = activeLayersBefore,
+            ActiveLayersAfter = viewModel.DeviceShell.ActiveLayers.ToList(),
+            ResolvedKey = resolvedKey,
+            EmittedTransport = "vnc",
+            EmittedKey = resolvedKey,
+            EmittedKeysym = keysym is null ? string.Empty : $"0x{keysym.Value:x}",
+            Resolved = new InputResolvedButton
+            {
+                ProfileButtonId = button.Id,
+                Label = button.Label,
+                SelectedLayer = "longPress",
+                ResolvedKey = resolvedKey,
+                SourceKey = button.LongPressKeyCode
+            },
+            Emitted =
+            {
+                new InputEmittedEvent { Transport = "vnc", Key = resolvedKey, Keysym = keysym is null ? string.Empty : $"0x{keysym.Value:x}", Phase = $"hold:{parameters.DurationMs}ms" }
+            },
+            Warnings =
+            {
+                "press_button uses PocketFrame device profile projection.",
+                "VNC key events are not Linux evdev events."
+            }
+        };
     }
 
     public async Task ClickScreenAsync(int x, int y, string button)

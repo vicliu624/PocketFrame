@@ -17,7 +17,22 @@ public sealed class MarkdownReportWriterTests
             State = new AutomationState { Connected = true, FrameIndex = 10, FrameHash = "abc", VncStatus = "Connected" },
             Trace =
             {
-                new AutomationActionTraceEntry { Method = "type_text", Ok = true, FrameIndexBefore = 10, FrameIndexAfter = 11 }
+                new AutomationActionTraceEntry { Method = "type_text", Ok = true, FrameIndexBefore = 10, FrameIndexAfter = 11 },
+                new AutomationActionTraceEntry
+                {
+                    Method = "press_button",
+                    Ok = true,
+                    Result = new InputActionResult
+                    {
+                        RequestedAction = "press_button",
+                        RequestedButtonId = "keyboard-z",
+                        InputLayer = "pocketframe-profile",
+                        ResolvedKey = "Left",
+                        EmittedKey = "Left",
+                        EmittedKeysym = "0xff51",
+                        Warnings = { "VNC key events are not Linux evdev events." }
+                    }
+                }
             },
             Screenshots =
             {
@@ -49,5 +64,8 @@ public sealed class MarkdownReportWriterTests
         Assert.Contains("initial-screen.png", markdown);
         Assert.Contains("## Visual Diffs", markdown);
         Assert.Contains("diff.png", markdown);
+        Assert.Contains("## Input Audit", markdown);
+        Assert.Contains("keyboard-z", markdown);
+        Assert.Contains("0xff51", markdown);
     }
 }

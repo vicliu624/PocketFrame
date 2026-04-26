@@ -70,6 +70,22 @@ public sealed class RfbFramebuffer
         }
     }
 
+    public void CopyTo(IntPtr destination, int rowBytes)
+    {
+        lock (syncRoot)
+        {
+            var sourceRowBytes = Width * 4;
+            for (var row = 0; row < Height; row++)
+            {
+                System.Runtime.InteropServices.Marshal.Copy(
+                    BgraPixels,
+                    row * sourceRowBytes,
+                    IntPtr.Add(destination, row * rowBytes),
+                    sourceRowBytes);
+            }
+        }
+    }
+
     public RfbFramebuffer CloneSnapshot()
     {
         lock (syncRoot)

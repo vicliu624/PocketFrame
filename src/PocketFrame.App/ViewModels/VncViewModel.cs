@@ -13,6 +13,7 @@ public sealed class VncViewModel : ObservableObject
     private string password = string.Empty;
     private string status = "Disconnected";
     private RfbFramebuffer? framebuffer;
+    private long frameVersion;
 
     public VncViewModel(IVncClientService vncClientService)
     {
@@ -47,8 +48,27 @@ public sealed class VncViewModel : ObservableObject
         }
     }
 
+    public long FrameVersion
+    {
+        get => frameVersion;
+        private set => SetProperty(ref frameVersion, value);
+    }
+
     public bool HasFramebuffer => Framebuffer is not null;
     public bool ShowPlaceholder => Framebuffer is null && !Status.StartsWith("Connected", StringComparison.OrdinalIgnoreCase);
 
     public VncConnectionOptions CreateOptions() => new() { Host = Host, Port = Port, Password = Password };
+
+    public void UpdateFramebuffer(RfbFramebuffer nextFramebuffer)
+    {
+        var hadFramebuffer = framebuffer is not null;
+        framebuffer = nextFramebuffer;
+        FrameVersion++;
+        OnPropertyChanged(nameof(Framebuffer));
+        if (!hadFramebuffer)
+        {
+            OnPropertyChanged(nameof(HasFramebuffer));
+            OnPropertyChanged(nameof(ShowPlaceholder));
+        }
+    }
 }
